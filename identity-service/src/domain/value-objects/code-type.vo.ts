@@ -1,0 +1,4 @@
+export enum CodeType {
+  RESET_PASSWORD = 'RESET_PASSWORD',
+  CONFIRM_EMAIL = 'CONFIRM_EMAIL',
+}

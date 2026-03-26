@@ -40,7 +40,7 @@ import { SyncUserAppStatusUseCase } from '../../application/usecases/events/sync
         host: config.get<string>(DATABASE_HOST) || 'localhost',
         port: Number(config.get<string>(DATABASE_PORT)) || 3306,
         username: config.get<string>(DATABASE_USER) || 'root',
-        password: config.get<string>(DATABASE_PASSWORD) || 'default-password',
+        password: config.get<string>(DATABASE_PASSWORD) ?? 'default-password',
         database: config.get<string>(DATABASE_NAME) || 'identity-service',
         entities: [UserOrmEntity, CodeOrmEntity],
         synchronize: true,

@@ -1,0 +1,18 @@
+{
+  "name": "foodscroll-root",
+  "version": "1.0.0",
+  "description": "Root package to manage microservices startup",
+  "scripts": {
+    "start": "npm run start:all",
+    "start:all": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"NATS,CUSTOMER,GATEWAY,IDENTITY,LOCATION\" --prefix-colors \"blue,magenta,cyan,yellow,green\" \"npm run start:nats\" \"npm run start:customer\" \"npm run start:gateway\" \"npm run start:identity\" \"npm run start:location\"",
+    "start:nats": "cd nats-service && npm run start",
+    "start:customer": "wait-on tcp:5590 && cd customer-service && npm run start:dev",
+    "start:gateway": "wait-on tcp:5561 && cd gateway && npm run start:dev",
+    "start:identity": "wait-on tcp:3000 && cd identity-service && npm run start:dev",
+    "start:location": "wait-on tcp:5560 && cd location-service && npm run start:dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0",
+    "wait-on": "^7.0.0"
+  }
+}

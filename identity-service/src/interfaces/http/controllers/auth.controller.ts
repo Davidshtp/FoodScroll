@@ -1,4 +1,4 @@
-import {Controller,Post,Body,Get,Request,UseGuards,Res} from '@nestjs/common';
+import {Controller,Post,Body,Get,Request,UseGuards,Res,UnauthorizedException} from '@nestjs/common';
 import { Response } from 'express';
 import { RegisterUseCase } from '../../../application/usecases/auth/register.usecase';
 import { LoginUseCase } from '../../../application/usecases/auth/login.usecase';
@@ -74,7 +74,7 @@ export class AuthController {
       req.cookies?.[REFRESH_COOKIE_NAME] || req.body?.refresh_token;
 
     if (!refreshToken) {
-      return { error: 'No refresh token' };
+      throw new UnauthorizedException('No refresh token');
     }
 
     const result = await this.refreshTokenUseCase.execute({

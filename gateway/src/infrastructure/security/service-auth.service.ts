@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HEADER_SERVICE_SECRET } from '../../config/constants';
+import { HEADER_SERVICE_SECRET, SERVICE_SECRET } from '../../config/constants';
 
 
 @Injectable()
@@ -8,7 +8,7 @@ export class ServiceAuthService {
   private readonly serviceSecret: string;
 
   constructor(private configService: ConfigService) {
-    const value = this.configService.get<string>('SERVICE_SECRET');
+    const value = this.configService.get<string>(SERVICE_SECRET);
 
     if (!value) {
       throw new Error('SERVICE_SECRET must be configured');

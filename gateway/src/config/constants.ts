@@ -19,3 +19,12 @@ export enum Role {
   RESTAURANT = 'RESTAURANT',
   ADMIN = 'ADMIN',
 }
+
+// Enlace a los microservicios (espejo de las variables de entorno en .env)
+export const IDENTITY_SERVICE_URL = 'IDENTITY_SERVICE_URL';
+export const CUSTOMER_SERVICE_URL = 'CUSTOMER_SERVICE_URL';
+export const LOCATION_SERVICE_URL = 'LOCATION_SERVICE_URL';
+
+export const GATEWAY_PORT = 'GATEWAY_PORT';
+export const HTTP_TIMEOUT = 'HTTP_TIMEOUT';
+export const HTTP_RETRIES = 'HTTP_RETRIES';

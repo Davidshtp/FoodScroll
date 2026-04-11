@@ -30,10 +30,16 @@ export class NatsServiceEventsPublisher implements AppStatusEventsPublisher {
       source: 'customer-service',
     };
 
+    const headers: Record<string, string> = {
+      [HEADER_SERVICE_SECRET]: this.serviceSecret,
+    };
+
+    if (event.accessToken) {
+      headers['Authorization'] = `Bearer ${event.accessToken}`;
+    }
+
     await this.httpClient.post('/events/app-status-updated', payload, {
-      headers: {
-        [HEADER_SERVICE_SECRET]: this.serviceSecret,
-      },
+      headers,
     });
     this.logger.log(
       `app.status.updated enviado a nats-service eventId=${payload.eventId} userId=${payload.userId} onboardingStatus=${payload.onboardingStatus} updatedAt=${payload.updatedAt}`,

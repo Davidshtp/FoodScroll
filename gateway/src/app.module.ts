@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import * as path from 'path';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PassportModule } from '@nestjs/passport';
@@ -20,12 +21,12 @@ import { CustomerProxyModule } from './modules/customer-proxy/customer-proxy.mod
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: path.resolve(__dirname, '..', '.env'),
     }),
 
     PassportModule.register({ defaultStrategy: 'jwt' }),
     ThrottlerModule.forRoot([{
-      ttl: 60000,
+      ttl: 60,
       limit: 60,
     }]),
 

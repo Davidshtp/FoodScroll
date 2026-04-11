@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { User } from '../../../domain/entities/user.entity';
 import { Role } from '../../../domain/value-objects/role.vo';
 import { ClientApp } from '../../../domain/value-objects/client-app.vo';
@@ -49,7 +50,7 @@ export class RegisterUseCase {
 
     const passwordHash = await this.hasher.hash(input.password);
     const role = this.mapClientToRole(input.client);
-    const id = crypto.randomUUID();
+    const id = randomUUID();
 
     const user = User.create({
       id,

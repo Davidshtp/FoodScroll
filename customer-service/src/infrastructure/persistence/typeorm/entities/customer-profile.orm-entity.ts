@@ -31,13 +31,6 @@ export class CustomerProfileOrmEntity {
   })
   gender: string;
 
-  @Column({
-    type: 'enum',
-    enum: ['REQUIRED_BASIC_CONFIG', 'REQUIRED_ADDRESS', 'COMPLETED'],
-    default: 'REQUIRED_ADDRESS',
-  })
-  onboardingStatus: string;
-
   @CreateDateColumn()
   createdAt: Date;
 

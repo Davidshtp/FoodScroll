@@ -16,11 +16,14 @@ export class CustomerProfileController {
   @Post()
   async create(
     @Headers('x-user-id') userId: string,
+    @Headers('authorization') authorization: string,
     @Body() dto: CreateCustomerProfileDto,
   ) {
+    const accessToken = authorization?.replace('Bearer ', '');
     const result = await this.createProfileUseCase.execute({
       userId,
       ...dto,
+      accessToken,
     });
     return result.profile;
   }

@@ -21,7 +21,7 @@ export class CodeProxyController {
   // ───── Endpoints públicos (sin JWT) ─────
 
   @Public()
-  @Throttle({ default: { ttl: 60000, limit: 3 } })
+  @Throttle({ default: { ttl: 60, limit: 3 } })
   @Post('request-reset-code')
   async requestResetCode(@Body() body: any, @Req() req: Request) {
     const result = await this.proxy.forwardPublic(req, {
@@ -34,7 +34,7 @@ export class CodeProxyController {
   }
 
   @Public()
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: 60, limit: 5 } })
   @Post('verify-reset-code')
   async verifyResetCode(@Body() body: any, @Req() req: Request) {
     const result = await this.proxy.forwardPublic(req, {

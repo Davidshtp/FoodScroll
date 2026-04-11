@@ -3,9 +3,10 @@ import { v4 as uuid } from 'uuid';
 import { Address } from '../../../domain/entities/address.entity';
 import { AddressRepository, ADDRESS_REPOSITORY } from '../../../domain/repositories/address.repository';
 import { CustomerProfileRepository, CUSTOMER_PROFILE_REPOSITORY } from '../../../domain/repositories/customer-profile.repository';
-import { CustomerProfileNotFoundError } from '../../../domain/errors/domain.errors';
-import { OnboardingStatus } from '../../../domain/value-objects/onboarding-status.vo';
-import { APP_STATUS_EVENTS_PUBLISHER, AppStatusEventsPublisher, createAppStatusUpdatedEvent } from 'src/application/ports';
+import { CustomerProfileNotFoundError, AddressCoordinatesAlreadyExistsError } from '../../../domain/errors/domain.errors';
+import { OnboardingStatus, APP_STATUS_EVENTS_PUBLISHER, AppStatusEventsPublisher, createAppStatusUpdatedEvent } from '../../ports/customer-events.port';
+
+const ADDRESS_DUPLICATE_THRESHOLD_METERS = 30;
 
 export interface CreateAddressInput {
   customerId: string;
@@ -16,6 +17,7 @@ export interface CreateAddressInput {
   details?: string;
   latitude: number;
   longitude: number;
+  accessToken?: string;
 }
 
 export interface CreateAddressOutput {
@@ -39,6 +41,12 @@ export class CreateAddressUseCase {
       throw new CustomerProfileNotFoundError(input.customerId);
     }
 
+    const existingAddresses = await this.addressRepo.findByCustomerId(input.customerId);
+
+    this.validateNoDuplicateCoordinates(input.latitude, input.longitude, existingAddresses);
+
+    const wasFirstAddress = existingAddresses.length === 0;
+
     const address = Address.create({
       id: uuid(),
       customerId: input.customerId,
@@ -53,20 +61,56 @@ export class CreateAddressUseCase {
 
     await this.addressRepo.save(address);
 
-    if (profile.onboardingStatus === OnboardingStatus.REQUIRED_ADDRESS) {
-      const updatedProfile = profile.completeOnboarding();
-      await this.profileRepo.save(updatedProfile);
-      // Publicar evento de actualización de estado de onboarding
+    if (wasFirstAddress) {
       await this.appStatusEventsPublisher.publishAppStatusUpdated(
         createAppStatusUpdatedEvent({
-          userId: updatedProfile.userId,
-          updatedAt: updatedProfile.updatedAt,
-          onboardingStatus: updatedProfile.onboardingStatus,
+          userId: profile.userId,
+          updatedAt: new Date(),
+          onboardingStatus: OnboardingStatus.COMPLETED,
+          accessToken: input.accessToken,
         }),
       );
-
     }
 
     return { address };
+  }
+
+  private validateNoDuplicateCoordinates(
+    latitude: number,
+    longitude: number,
+    existingAddresses: Address[],
+  ): void {
+    for (const address of existingAddresses) {
+      const distance = this.calculateHaversineDistance(
+        latitude,
+        longitude,
+        address.latitude,
+        address.longitude,
+      );
+
+      if (distance < ADDRESS_DUPLICATE_THRESHOLD_METERS) {
+        throw new AddressCoordinatesAlreadyExistsError();
+      }
+    }
+  }
+
+  private calculateHaversineDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const R = 6371000;
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
   }
 }

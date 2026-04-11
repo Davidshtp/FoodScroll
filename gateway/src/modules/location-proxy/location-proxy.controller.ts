@@ -2,6 +2,7 @@ import { Controller, Get, Param, Query, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { ProxyService } from '../../infrastructure/http/proxy.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('location')
 export class LocationProxyController {
@@ -9,12 +10,10 @@ export class LocationProxyController {
 
   // ───── Departamentos ─────
 
+  @Public()
   @Get('department')
-  async findAllDepartments(
-    @Req() req: Request,
-    @CurrentUser() user: any,
-  ) {
-    const result = await this.proxy.forwardAuthenticated(req, user, {
+  async findAllDepartments(@Req() req: Request) {
+    const result = await this.proxy.forwardPublic(req, {
       method: 'GET',
       service: 'LOCATION',
       path: '/department',
@@ -24,13 +23,13 @@ export class LocationProxyController {
 
   // ───── Ciudades ─────
 
+  @Public()
   @Get('city/by-department/:departmentId')
   async findCitiesByDepartment(
     @Param('departmentId') departmentId: string,
     @Req() req: Request,
-    @CurrentUser() user: any,
   ) {
-    const result = await this.proxy.forwardAuthenticated(req, user, {
+    const result = await this.proxy.forwardPublic(req, {
       method: 'GET',
       service: 'LOCATION',
       path: `/city/by-department/${departmentId}`,
@@ -38,13 +37,13 @@ export class LocationProxyController {
     return result.data;
   }
 
+  @Public()
   @Get('city/:id')
   async findCityById(
     @Param('id') id: string,
     @Req() req: Request,
-    @CurrentUser() user: any,
   ) {
-    const result = await this.proxy.forwardAuthenticated(req, user, {
+    const result = await this.proxy.forwardPublic(req, {
       method: 'GET',
       service: 'LOCATION',
       path: `/city/${id}`,

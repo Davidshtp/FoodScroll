@@ -3,7 +3,7 @@ import { AppModule } from './interfaces/modules/app.module';
 import { ConfigService } from '@nestjs/config';
 import { SERVER_PORT } from './infrastructure/config/constants';
 import { ValidationPipe, Logger } from '@nestjs/common';
-import * as cookieParser from 'cookie-parser';
+const cookieParser = require('cookie-parser');
 
 
 async function bootstrap() {
@@ -32,7 +32,9 @@ async function bootstrap() {
 
   const port = configService.get<number>(SERVER_PORT) || 5560;
 
-  await app.listen(port, 'localhost');
+  // Bind explicitly to IPv4 localhost.
+  // This avoids cases where `localhost` resolves to IPv6 (::1) but some callers use 127.0.0.1.
+  await app.listen(port, '127.0.0.1');
   logger.log(`Identity Service corriendo en http://localhost:${port} (solo accesible internamente)`);
 }
 bootstrap();

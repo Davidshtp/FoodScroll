@@ -36,3 +36,9 @@ export class AddressOwnershipError extends DomainError {
     super('No tienes permiso para modificar esta dirección');
   }
 }
+
+export class AddressCoordinatesAlreadyExistsError extends DomainError {
+  constructor() {
+    super('Ya tienes una dirección registrada en esta ubicación (dentro de 30 metros)');
+  }
+}

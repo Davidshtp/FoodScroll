@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { GetAllDepartmentsUseCase } from '../../../application/usecases/department/get-all-departments.usecase';
+import { Public } from '../decorators';
 
 @Controller('department')
 export class DepartmentController {
@@ -7,6 +8,7 @@ export class DepartmentController {
     private readonly getAllDepartmentsUseCase: GetAllDepartmentsUseCase,
   ) {}
 
+  @Public()
   @Get()
   async findAll() {
     const result = await this.getAllDepartmentsUseCase.execute();

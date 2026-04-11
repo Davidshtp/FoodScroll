@@ -16,7 +16,7 @@ export class AuthProxyController {
   // ───── Endpoints públicos (sin JWT) ─────
 
   @Public()
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: 60, limit: 5 } })
   @Post('register')
   async register(@Body() body: any, @Req() req: Request) {
     const result = await this.proxy.forwardPublic(req, {
@@ -29,7 +29,7 @@ export class AuthProxyController {
   }
 
   @Public()
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle({ default: { ttl: 60, limit: 10 } })
   @Post('login')
   async login(
     @Body() body: any,

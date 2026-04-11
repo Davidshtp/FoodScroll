@@ -2,7 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, Logger } from '@nestjs/common';
-import * as cookieParser from 'cookie-parser';
+const cookieParser = require('cookie-parser');
+import { GATEWAY_PORT } from './config/constants';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -24,8 +25,8 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api');
-  
-  const port = configService.get<number>('GATEWAY_PORT') || 3000;
+
+  const port = configService.get<number>(GATEWAY_PORT) || 3000;
   await app.listen(port);
   logger.log(`Gateway corriendo en http://localhost:${port}/api`);
 }

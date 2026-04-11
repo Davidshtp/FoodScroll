@@ -17,11 +17,14 @@ export class AddressController {
   @Post()
   async create(
     @Headers('x-user-id') userId: string,
+    @Headers('authorization') authorization: string,
     @Body() dto: CreateAddressDto,
   ) {
+    const accessToken = authorization?.replace('Bearer ', '');
     const result = await this.createAddressUseCase.execute({
       customerId: userId,
       ...dto,
+      accessToken,
     });
     return result.address;
   }
@@ -49,8 +52,10 @@ export class AddressController {
   @Delete(':addressId')
   async remove(
     @Headers('x-user-id') userId: string,
+    @Headers('authorization') authorization: string,
     @Param('addressId') addressId: string,
   ) {
-    return this.deleteAddressUseCase.execute({ addressId, customerId: userId });
+    const accessToken = authorization?.replace('Bearer ', '');
+    return this.deleteAddressUseCase.execute({ addressId, customerId: userId, accessToken });
   }
 }

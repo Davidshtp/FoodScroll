@@ -1,6 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HEADER_SERVICE_SECRET } from '../../config/constants';
+import { HEADER_SERVICE_SECRET, SERVICE_SECRET } from '../../config/constants';
 
 @Injectable()
 export class ServiceSecretGuard implements CanActivate {
@@ -9,7 +9,7 @@ export class ServiceSecretGuard implements CanActivate {
 
   constructor(private configService: ConfigService) {
     this.serviceSecret =
-      this.configService.get<string>('SERVICE_SECRET') ||
+      this.configService.get<string>(SERVICE_SECRET) ||
       'default-service-secret';
   }
 

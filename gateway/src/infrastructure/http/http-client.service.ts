@@ -2,7 +2,7 @@ import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig, Method } from 'axios';
 import { ServiceAuthService } from '../security/service-auth.service';
-import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, } from '../../config/constants';
+import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, HTTP_RETRIES, HTTP_TIMEOUT, IDENTITY_SERVICE_URL, CUSTOMER_SERVICE_URL, LOCATION_SERVICE_URL, } from '../../config/constants';
 
 // ───── Interfaces ─────
 export interface ServiceResponse<T = any> {
@@ -36,14 +36,19 @@ export class HttpClientService {
     private configService: ConfigService,
     private serviceAuth: ServiceAuthService,
   ) {
-    this.timeout = this.configService.get<number>('HTTP_TIMEOUT') || 5000;
-    this.retries = this.configService.get<number>('HTTP_RETRIES') || 2;
+    this.timeout = this.configService.get<number>(HTTP_TIMEOUT) || 5000;
+    this.retries = this.configService.get<number>(HTTP_RETRIES) || 2;
 
     this.serviceUrls = {
-      IDENTITY: this.configService.get<string>('IDENTITY_SERVICE_URL') || 'http://localhost:5560',
-      CUSTOMER: this.configService.get<string>('CUSTOMER_SERVICE_URL') || 'http://localhost:5561',
-      LOCATION: this.configService.get<string>('LOCATION_SERVICE_URL') || 'http://localhost:5562',
-
+      IDENTITY:
+        this.configService.get<string>(IDENTITY_SERVICE_URL) ||
+        'http://127.0.0.1:5560',
+      CUSTOMER:
+        this.configService.get<string>(CUSTOMER_SERVICE_URL) ||
+        'http://127.0.0.1:5561',
+      LOCATION:
+        this.configService.get<string>(LOCATION_SERVICE_URL) ||
+        'http://127.0.0.1:5562',
     };
   }
 
@@ -117,15 +122,17 @@ export class HttpClientService {
             | string[]
             | undefined,
         };
-      } catch (error) {
+      } catch (error: unknown) {
         // Errores HTTP del microservicio → no reintentar
         if (error instanceof HttpException) {
           throw error;
         }
 
         lastError = error;
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
         this.logger.warn(
-          `[${options.correlationId || '-'}] Intento ${attempt + 1} falló para ${options.method} ${url}: ${error.message}`,
+          `[${options.correlationId || '-'}] Intento ${attempt + 1} falló para ${options.method} ${url}: ${errorMessage}`,
         );
 
         // Esperar antes de reintentar (backoff lineal)

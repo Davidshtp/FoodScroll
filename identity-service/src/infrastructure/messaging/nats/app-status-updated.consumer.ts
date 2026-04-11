@@ -53,7 +53,18 @@ export class AppStatusUpdatedConsumer implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleMessage(msg: JsMsg): Promise<void> {
-    const event = JSON.parse(this.codec.decode(msg.data)) as AppStatusUpdatedEvent;
+    let event: AppStatusUpdatedEvent;
+
+    try {
+      event = JSON.parse(this.codec.decode(msg.data)) as AppStatusUpdatedEvent;
+    } catch (error) {
+      this.logger.error(
+        `Payload invalido en ${msg.subject}. Ack para evitar redelivery.`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      msg.ack();
+      return;
+    }
 
     this.logger.log(
       `Evento recibido subject=${msg.subject} eventId=${event.eventId} source=${event.source} userId=${event.userId}`,

@@ -28,6 +28,7 @@ import { TOKEN_GENERATOR } from '../../application/ports/token-generator.port';
 import { JwtStrategy } from '../http/strategies/jwt.strategy';
 import { JwtAuthGuard } from '../http/guards/jwt-auth.guard';
 import { RolesGuard } from '../http/guards/roles.guard';
+import { JWT_SECRET_KEY } from '../../infrastructure/config/constants';
 
 @Module({
   imports: [
@@ -38,7 +39,7 @@ import { RolesGuard } from '../http/guards/roles.guard';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const secret = configService.get<string>('JWT_SECRET_KEY');
+        const secret = configService.get<string>(JWT_SECRET_KEY);
         if (!secret) {
           throw new Error('JWT_SECRET_KEY is not configured');
         }

@@ -121,13 +121,14 @@ import { SeedRunner } from './seed-runner';
     JwtStrategy,
 
     // ───── Global Guards ─────
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
+    // Order matters: ServiceSecret must run before JWT.
     {
       provide: APP_GUARD,
       useClass: ServiceSecretGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
 
     // ───── Global Interceptors ─────

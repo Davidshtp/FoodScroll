@@ -4,7 +4,7 @@ import { CustomerProfile } from '../../../domain/entities/customer-profile.entit
 import { Gender } from '../../../domain/value-objects/gender.vo';
 import { CustomerProfileRepository, CUSTOMER_PROFILE_REPOSITORY } from '../../../domain/repositories/customer-profile.repository';
 import { CustomerProfileAlreadyExistsError } from '../../../domain/errors/domain.errors';
-import { APP_STATUS_EVENTS_PUBLISHER, AppStatusEventsPublisher, createAppStatusUpdatedEvent } from '../../ports/customer-events.port';
+import { OnboardingStatus, APP_STATUS_EVENTS_PUBLISHER, AppStatusEventsPublisher, createAppStatusUpdatedEvent } from '../../ports/customer-events.port';
 
 export interface CreateCustomerProfileInput {
   userId: string;
@@ -14,6 +14,7 @@ export interface CreateCustomerProfileInput {
   avatarUrl?: string;
   birthDate: string;
   gender: Gender;
+  accessToken?: string;
 }
 
 export interface CreateCustomerProfileOutput {
@@ -54,7 +55,8 @@ export class CreateCustomerProfileUseCase {
       createAppStatusUpdatedEvent({
         userId: profile.userId,
         updatedAt: profile.updatedAt,
-        onboardingStatus: profile.onboardingStatus,
+        onboardingStatus: OnboardingStatus.REQUIRED_ADDRESS,
+        accessToken: input.accessToken,
       }),
     );
 

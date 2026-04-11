@@ -2,12 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AddressRepository, ADDRESS_REPOSITORY } from '../../../domain/repositories/address.repository';
 import { CustomerProfileRepository, CUSTOMER_PROFILE_REPOSITORY } from '../../../domain/repositories/customer-profile.repository';
 import { AddressNotFoundError, AddressOwnershipError } from '../../../domain/errors/domain.errors';
-import { OnboardingStatus } from '../../../domain/value-objects/onboarding-status.vo';
-import { APP_STATUS_EVENTS_PUBLISHER, AppStatusEventsPublisher, createAppStatusUpdatedEvent } from 'src/application/ports';
+import { OnboardingStatus, APP_STATUS_EVENTS_PUBLISHER, AppStatusEventsPublisher, createAppStatusUpdatedEvent } from '../../ports/customer-events.port';
 
 export interface DeleteAddressInput {
   addressId: string;
   customerId: string;
+  accessToken?: string;
 }
 
 export interface DeleteAddressOutput {
@@ -38,23 +38,20 @@ export class DeleteAddressUseCase {
       throw new AddressOwnershipError();
     }
 
+    const addressesBeforeDelete = await this.addressRepo.findByCustomerId(input.customerId);
+    const wasLastAddress = addressesBeforeDelete.length === 1;
+
     await this.addressRepo.remove(address);
 
-    const remaining = await this.addressRepo.findByCustomerId(input.customerId);
-    if (remaining.length === 0) {
-      const profile = await this.profileRepo.findByUserId(input.customerId);
-      if (profile && profile.onboardingStatus === OnboardingStatus.COMPLETED) {
-        const updatedProfile = profile.requireAddress();
-        await this.profileRepo.save(updatedProfile);
-        // emitimos evento de cambio de estado de onboarding para que identity-service sincronice el user.appStatus
-        await this.appStatusEventsPublisher.publishAppStatusUpdated(
-          createAppStatusUpdatedEvent({
-            userId: updatedProfile.userId,
-            updatedAt: updatedProfile.updatedAt,
-            onboardingStatus: updatedProfile.onboardingStatus,
-          }),
-        );
-      }
+    if (wasLastAddress) {
+      await this.appStatusEventsPublisher.publishAppStatusUpdated(
+        createAppStatusUpdatedEvent({
+          userId: input.customerId,
+          updatedAt: new Date(),
+          onboardingStatus: OnboardingStatus.REQUIRED_ADDRESS,
+          accessToken: input.accessToken,
+        }),
+      );
     }
 
     return {

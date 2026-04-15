@@ -1,0 +1,9 @@
+{
+  "charset": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  "min_len": 4,
+  "max_len": 7,
+  "pad_index": 62,
+  "len_classes": 4,
+  "pad_token": "<PAD>",
+  "best_val_exact": 0.0
+}

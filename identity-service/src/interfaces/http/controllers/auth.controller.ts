@@ -1,4 +1,13 @@
-import {Controller,Post,Body,Get,Request,UseGuards,Res,UnauthorizedException} from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Request,
+  UseGuards,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { RegisterUseCase } from '../../../application/usecases/auth/register.usecase';
 import { LoginUseCase } from '../../../application/usecases/auth/login.usecase';
@@ -7,6 +16,7 @@ import { LogoutUseCase } from '../../../application/usecases/auth/logout.usecase
 import { RegisterDto, LoginDto } from '../dtos/auth.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { ClientApp } from '../../../domain/value-objects/client-app.vo';
+import { UserId } from '../decorators/user-id.decorator';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
 const REFRESH_COOKIE_OPTIONS = {
@@ -100,14 +110,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   async logout(
-    @Request() req,
+    @UserId() userId: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const userId = req.user?.id;
-    
-    if (userId) {
-      await this.logoutUseCase.execute({ userId });
-    }
+    await this.logoutUseCase.execute({ userId });
 
     res.clearCookie(REFRESH_COOKIE_NAME, REFRESH_COOKIE_OPTIONS);
     return { loggedOut: true };

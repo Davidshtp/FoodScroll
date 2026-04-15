@@ -4,6 +4,7 @@ import { GetCustomerProfileUseCase } from '../../../application/usecases/custome
 import { UpdateCustomerProfileUseCase } from '../../../application/usecases/customer-profile/update-customer-profile.usecase';
 import { CreateCustomerProfileDto } from '../dtos/customer-profile.dto';
 import { UpdateCustomerProfileDto } from '../dtos/customer-profile.dto';
+import { UserId } from '../decorators/user-id.decorator';
 
 @Controller('customer-profile')
 export class CustomerProfileController {
@@ -15,7 +16,7 @@ export class CustomerProfileController {
 
   @Post()
   async create(
-    @Headers('x-user-id') userId: string,
+    @UserId() userId: string,
     @Headers('authorization') authorization: string,
     @Body() dto: CreateCustomerProfileDto,
   ) {
@@ -29,7 +30,7 @@ export class CustomerProfileController {
   }
 
   @Get()
-  async findMe(@Headers('x-user-id') userId: string) {
+  async findMe(@UserId() userId: string) {
     const result = await this.getProfileUseCase.execute({ userId });
     return {
       ...result.profile,
@@ -39,7 +40,7 @@ export class CustomerProfileController {
 
   @Patch()
   async update(
-    @Headers('x-user-id') userId: string,
+    @UserId() userId: string,
     @Body() dto: UpdateCustomerProfileDto,
   ) {
     const result = await this.updateProfileUseCase.execute({

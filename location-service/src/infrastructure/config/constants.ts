@@ -13,6 +13,7 @@ export const DATABASE_NAME = 'DATABASE_NAME';
 // ───── Internal Communication Headers ─────
 export const HEADER_SERVICE_SECRET = 'x-service-secret';
 export const HEADER_CORRELATION_ID = 'x-correlation-id';
+export const HEADER_USER_ID = 'x-user-id';
 
 // ───── External APIs ─────
 export const NOMINATIM_BASE_URL = 'NOMINATIM_BASE_URL';

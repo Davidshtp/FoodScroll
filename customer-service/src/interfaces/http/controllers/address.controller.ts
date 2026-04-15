@@ -1,9 +1,10 @@
-import {Controller,Get,Post,Patch,Delete,Body,Param,Headers} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Headers } from '@nestjs/common';
 import { CreateAddressUseCase } from '../../../application/usecases/address/create-address.usecase';
 import { GetAddressesUseCase } from '../../../application/usecases/address/get-addresses.usecase';
 import { UpdateAddressUseCase } from '../../../application/usecases/address/update-address.usecase';
 import { DeleteAddressUseCase } from '../../../application/usecases/address/delete-address.usecase';
 import { CreateAddressDto, UpdateAddressDto } from '../dtos/address.dto';
+import { UserId } from '../decorators/user-id.decorator';
 
 @Controller('address')
 export class AddressController {
@@ -16,7 +17,7 @@ export class AddressController {
 
   @Post()
   async create(
-    @Headers('x-user-id') userId: string,
+    @UserId() userId: string,
     @Headers('authorization') authorization: string,
     @Body() dto: CreateAddressDto,
   ) {
@@ -30,14 +31,14 @@ export class AddressController {
   }
 
   @Get()
-  async findMyAddresses(@Headers('x-user-id') userId: string) {
+  async findMyAddresses(@UserId() userId: string) {
     const result = await this.getAddressesUseCase.execute({ customerId: userId });
     return result.addresses;
   }
 
   @Patch(':addressId')
   async update(
-    @Headers('x-user-id') userId: string,
+    @UserId() userId: string,
     @Param('addressId') addressId: string,
     @Body() dto: UpdateAddressDto,
   ) {
@@ -51,7 +52,7 @@ export class AddressController {
 
   @Delete(':addressId')
   async remove(
-    @Headers('x-user-id') userId: string,
+    @UserId() userId: string,
     @Headers('authorization') authorization: string,
     @Param('addressId') addressId: string,
   ) {

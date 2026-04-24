@@ -6,6 +6,7 @@ import {
   Body,
   UseGuards,
   HttpCode,
+  Headers,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
@@ -14,7 +15,7 @@ import {
   UpdateDeliveryProfileUseCase,
 } from '../../../application/usecases/delivery-profile';
 import { CreateDeliveryProfileDto, UpdateDeliveryProfileDto } from '../dtos';
-import { UserId } from '../decorators/user-id.decorator';
+import { CurrentUser } from '../decorators/current-user.decorator';
 
 @Controller('delivery-profile')
 @UseGuards(JwtAuthGuard)
@@ -28,10 +29,11 @@ export class DeliveryProfileController {
   @Post()
   @HttpCode(201)
   async create(
-    @UserId() userId: string,
+    @CurrentUser('id') userId: string,
+    @Headers('authorization') authorization: string,
     @Body() dto: CreateDeliveryProfileDto,
   ) {
-    return this.createProfileUseCase.execute({
+    const result = await this.createProfileUseCase.execute({
       userId,
       firstName: dto.firstName,
       lastName: dto.lastName,
@@ -41,17 +43,22 @@ export class DeliveryProfileController {
       birthDate: new Date(dto.birthDate),
       gender: dto.gender,
       vehicleType: dto.vehicleType,
+      authorization,
     });
+    return {
+      ...result.profile,
+      access_token: result.access_token,
+    };
   }
 
   @Get()
-  async findMe(@UserId() userId: string) {
+  async findMe(@CurrentUser('id') userId: string) {
     return this.getProfileUseCase.execute(userId);
   }
 
   @Patch()
   async update(
-    @UserId() userId: string,
+    @CurrentUser('id') userId: string,
     @Body() dto: UpdateDeliveryProfileDto,
   ) {
     return this.updateProfileUseCase.execute(userId, {
@@ -64,17 +71,6 @@ export class DeliveryProfileController {
       gender: dto.gender,
       vehicleType: dto.vehicleType,
       avatarUrl: dto.avatarUrl,
-    });
-  }
-
-  @Patch('status')
-  @HttpCode(200)
-  async setActive(
-    @UserId() userId: string,
-    @Body() dto: { isActive: boolean },
-  ) {
-    return this.updateProfileUseCase.execute(userId, {
-      isActive: dto.isActive,
     });
   }
 }

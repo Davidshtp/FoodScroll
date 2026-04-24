@@ -5,8 +5,6 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
-  OneToOne,
-  JoinColumn,
   Index,
   OneToMany,
 } from 'typeorm';
@@ -43,21 +41,11 @@ export class DeliveryProfileOrmEntity {
   @Column({ type: 'enum', enum: Gender })
   gender: Gender;
 
-  @Column({ type: 'enum', enum: VehicleType })
-  vehicleType: VehicleType;
-
-  @Column({ default: true })
-  isActive: boolean;
+  @Column({ type: 'enum', enum: VehicleType, nullable: true })
+  vehicleType: VehicleType | null;
 
   @Column({ nullable: true })
   avatarUrl: string;
-
-  @Column({ nullable: true })
-  activeVehicleId: string | null;
-
-  @OneToOne(() => VehicleOrmEntity)
-  @JoinColumn({ name: 'activeVehicleId', referencedColumnName: 'id' })
-  activeVehicle: VehicleOrmEntity;
 
   @OneToMany(() => VehicleOrmEntity, (vehicle) => vehicle.profile)
   vehicles: VehicleOrmEntity[];

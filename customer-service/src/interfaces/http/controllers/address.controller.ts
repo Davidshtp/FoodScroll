@@ -15,19 +15,22 @@ export class AddressController {
     private readonly deleteAddressUseCase: DeleteAddressUseCase,
   ) {}
 
-  @Post()
+@Post()
   async create(
     @UserId() userId: string,
     @Headers('authorization') authorization: string,
     @Body() dto: CreateAddressDto,
   ) {
-    const accessToken = authorization?.replace('Bearer ', '');
     const result = await this.createAddressUseCase.execute({
       customerId: userId,
       ...dto,
-      accessToken,
+      authorization,
     });
-    return result.address;
+    const response: any = { ...result.address };
+    if (result.access_token) {
+      response.access_token = result.access_token;
+    }
+    return response;
   }
 
   @Get()
@@ -50,13 +53,21 @@ export class AddressController {
     return result.address;
   }
 
-  @Delete(':addressId')
+@Delete(':addressId')
   async remove(
     @UserId() userId: string,
     @Headers('authorization') authorization: string,
     @Param('addressId') addressId: string,
   ) {
-    const accessToken = authorization?.replace('Bearer ', '');
-    return this.deleteAddressUseCase.execute({ addressId, customerId: userId, accessToken });
+    const result = await this.deleteAddressUseCase.execute({
+      addressId,
+      customerId: userId,
+      authorization,
+    });
+    const response: any = { ...result.deletedAddress };
+    if (result.access_token) {
+      response.access_token = result.access_token;
+    }
+    return response;
   }
 }

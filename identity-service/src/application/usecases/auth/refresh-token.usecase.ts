@@ -59,6 +59,7 @@ export class RefreshTokenUseCase {
       client: payload.client,
       tokenVersion: user.tokenVersion,
       appStatus: user.appStatus,
+      isActive: user.isActive,
     });
 
     const newRefreshToken = this.tokenGen.generateRefreshToken({

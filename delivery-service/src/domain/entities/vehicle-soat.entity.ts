@@ -46,6 +46,6 @@ export class VehicleSoat {
   isVigente(): boolean {
     if (this.status !== 'VIGENTE') return false;
     if (!this.endDate) return false;
-    return this.endDate >= new Date();
+    return this.endDate.getTime() >= Date.now();
   }
 }

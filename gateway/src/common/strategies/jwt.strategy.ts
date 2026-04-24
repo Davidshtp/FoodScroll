@@ -28,9 +28,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-    // Rechazar refresh tokens — solo access tokens son válidos para autenticación
     if (payload.type === 'refresh') {
-      throw new UnauthorizedException('Refresh tokens cannot be used for authentication');
+      throw new UnauthorizedException(
+        'Refresh tokens cannot be used for authentication',
+      );
     }
 
     if (!payload.sub || !payload.role || !payload.client) {
@@ -42,6 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       role: payload.role,
       client: payload.client,
       appStatus: payload.appStatus ?? null,
+      tokenVersion: payload.tokenVersion,
     };
   }
 }

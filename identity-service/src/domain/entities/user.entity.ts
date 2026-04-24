@@ -58,9 +58,10 @@ export class User {
     passwordHash: string;
     role: Role;
   }): User {
+    const isDelivery = props.role === Role.DELIVERY;
     return new User({
       ...props,
-      isActive: true,
+      isActive: !isDelivery,
       isVerified: false,
       hashedRefreshToken: null,
       tokenVersion: 0,
@@ -175,7 +176,7 @@ export class User {
       isActive: this.isActive,
       isVerified: this.isVerified,
       hashedRefreshToken: this.hashedRefreshToken,
-      tokenVersion: this.tokenVersion,
+      tokenVersion: this.tokenVersion + 1,
       createdAt: this.createdAt,
       updatedAt,
       deletedAt: this.deletedAt,
@@ -195,6 +196,26 @@ export class User {
       isActive: false,
       isVerified: this.isVerified,
       hashedRefreshToken: null,
+      tokenVersion: this.tokenVersion + 1,
+      createdAt: this.createdAt,
+      updatedAt: new Date(),
+      deletedAt: this.deletedAt,
+      appStatus: this.appStatus,
+    });
+  }
+
+  /**
+   * Activa el usuario
+   */
+  activate(): User {
+    return new User({
+      id: this.id,
+      email: this.email,
+      passwordHash: this._passwordHash,
+      role: this.role,
+      isActive: true,
+      isVerified: this.isVerified,
+      hashedRefreshToken: this.hashedRefreshToken,
       tokenVersion: this.tokenVersion + 1,
       createdAt: this.createdAt,
       updatedAt: new Date(),

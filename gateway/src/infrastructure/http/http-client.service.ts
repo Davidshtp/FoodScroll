@@ -2,7 +2,7 @@ import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig, Method } from 'axios';
 import { ServiceAuthService } from '../security/service-auth.service';
-import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, HTTP_RETRIES, HTTP_TIMEOUT, IDENTITY_SERVICE_URL, CUSTOMER_SERVICE_URL, LOCATION_SERVICE_URL, } from '../../config/constants';
+import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, HTTP_RETRIES, HTTP_TIMEOUT, IDENTITY_SERVICE_URL, CUSTOMER_SERVICE_URL, LOCATION_SERVICE_URL, DELIVERY_SERVICE_URL, } from '../../config/constants';
 
 // ───── Interfaces ─────
 export interface ServiceResponse<T = any> {
@@ -22,8 +22,9 @@ export interface ForwardOptions {
   correlationId?: string;
   user?: { id: string; role: string };
   authorization?: string;
+  timeout?: number;
+  isMultipart?: boolean;
 }
-
 
 @Injectable()
 export class HttpClientService {
@@ -49,6 +50,9 @@ export class HttpClientService {
       LOCATION:
         this.configService.get<string>(LOCATION_SERVICE_URL) ||
         'http://127.0.0.1:5562',
+      DELIVERY:
+        this.configService.get<string>(DELIVERY_SERVICE_URL) ||
+        'http://127.0.0.1:5563',
     };
   }
 
@@ -70,8 +74,11 @@ export class HttpClientService {
     const url = `${baseUrl}${options.path}`;
 
     // ── Construir headers internos ──
+    const isFormData = options.body instanceof FormData || options.isMultipart;
+    const customContentType = options.headers?.['Content-Type'];
+    
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...this.serviceAuth.getServiceHeaders(),
       ...(options.correlationId && {
         [HEADER_CORRELATION_ID]: options.correlationId,
@@ -80,8 +87,10 @@ export class HttpClientService {
       ...(options.user?.role && { [HEADER_USER_ROLE]: options.user.role }),
       ...(options.authorization && { Authorization: options.authorization }),
       ...(options.cookies && { Cookie: options.cookies }),
-      ...(options.headers || {}),
+      ...(customContentType ? { 'Content-Type': customContentType } : {}),
     };
+    
+    delete options.headers?.['Content-Type'];
 
     const config: AxiosRequestConfig = {
       method: options.method,
@@ -89,7 +98,7 @@ export class HttpClientService {
       data: options.body,
       params: options.query,
       headers,
-      timeout: this.timeout,
+      timeout: options.timeout || this.timeout,
       validateStatus: () => true,
     };
 
@@ -118,9 +127,7 @@ export class HttpClientService {
         return {
           data: response.data as T,
           status: response.status,
-          setCookieHeaders: response.headers['set-cookie'] as
-            | string[]
-            | undefined,
+          setCookieHeaders: response.headers['set-cookie'],
         };
       } catch (error: unknown) {
         // Errores HTTP del microservicio → no reintentar

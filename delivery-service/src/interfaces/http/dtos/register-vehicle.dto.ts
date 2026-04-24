@@ -1,7 +1,9 @@
-import { IsString, IsOptional, IsEnum, IsNotEmpty } from 'class-validator';
-import { VehicleType } from '../../../domain/enums';
+import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
 
 export class RegisterVehicleDto {
+  @IsOptional()
+  imageBase64?: string;
+
   @IsOptional()
   @IsString()
   plate?: string;
@@ -13,10 +15,6 @@ export class RegisterVehicleDto {
   @IsOptional()
   @IsString()
   documentNumber?: string;
-
-  @IsOptional()
-  @IsEnum(VehicleType)
-  vehicleType?: VehicleType;
 }
 
 export class RegisterVehicleManualDto {
@@ -31,10 +29,6 @@ export class RegisterVehicleManualDto {
   @IsNotEmpty()
   @IsString()
   documentNumber: string;
-
-  @IsOptional()
-  @IsEnum(VehicleType)
-  vehicleType?: VehicleType;
 }
 
 export class ResolveRuntCaptchaDto {

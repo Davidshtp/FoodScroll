@@ -8,6 +8,7 @@ export interface TokenPayload {
   client: string;
   tokenVersion: number;
   appStatus: string | null;
+  isActive: boolean;
 }
 
 export interface RefreshTokenPayload {

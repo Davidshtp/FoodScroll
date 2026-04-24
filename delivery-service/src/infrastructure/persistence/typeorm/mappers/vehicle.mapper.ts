@@ -12,7 +12,6 @@ export class VehicleMapper {
       orm.line ?? null,
       orm.modelYear ?? null,
       orm.color ?? null,
-      orm.isPrimary,
       orm.soatStatus ?? null,
       orm.soatExpiry ?? null,
       orm.technoStatus ?? null,
@@ -33,7 +32,6 @@ export class VehicleMapper {
     orm.line = domain.line as any;
     orm.modelYear = domain.modelYear as any;
     orm.color = domain.color as any;
-    orm.isPrimary = domain.isPrimary;
     orm.soatStatus = domain.soatStatus as any;
     orm.soatExpiry = domain.soatExpiry as any;
     orm.technoStatus = domain.technoStatus as any;

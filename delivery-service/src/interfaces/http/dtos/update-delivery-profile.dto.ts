@@ -1,11 +1,6 @@
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  IsDateString,
-  IsBoolean,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
 import { DocumentType, Gender, VehicleType } from '../../../domain/enums';
+import { IsColombianPhone } from '../validators/colombian.validators';
 
 export class UpdateDeliveryProfileDto {
   @IsOptional()
@@ -18,6 +13,7 @@ export class UpdateDeliveryProfileDto {
 
   @IsOptional()
   @IsString()
+  @IsColombianPhone()
   phone?: string;
 
   @IsOptional()
@@ -43,8 +39,4 @@ export class UpdateDeliveryProfileDto {
   @IsOptional()
   @IsString()
   avatarUrl?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
 }

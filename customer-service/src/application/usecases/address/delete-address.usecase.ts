@@ -2,12 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AddressRepository, ADDRESS_REPOSITORY } from '../../../domain/repositories/address.repository';
 import { CustomerProfileRepository, CUSTOMER_PROFILE_REPOSITORY } from '../../../domain/repositories/customer-profile.repository';
 import { AddressNotFoundError, AddressOwnershipError } from '../../../domain/errors/domain.errors';
-import { OnboardingStatus, APP_STATUS_EVENTS_PUBLISHER, AppStatusEventsPublisher, createAppStatusUpdatedEvent } from '../../ports/customer-events.port';
+import { OnboardingStatus, CUSTOMER_IDENTITY_PORT, CustomerIdentityPort } from '../../ports/customer-identity.port';
 
 export interface DeleteAddressInput {
   addressId: string;
   customerId: string;
-  accessToken?: string;
+  authorization?: string;
 }
 
 export interface DeleteAddressOutput {
@@ -15,6 +15,7 @@ export interface DeleteAddressOutput {
     id: string;
     alias: string;
   };
+  access_token?: string;
 }
 
 @Injectable()
@@ -24,8 +25,8 @@ export class DeleteAddressUseCase {
     private readonly addressRepo: AddressRepository,
     @Inject(CUSTOMER_PROFILE_REPOSITORY)
     private readonly profileRepo: CustomerProfileRepository,
-    @Inject(APP_STATUS_EVENTS_PUBLISHER)
-    private readonly appStatusEventsPublisher: AppStatusEventsPublisher,
+    @Inject(CUSTOMER_IDENTITY_PORT)
+    private readonly identityPort: CustomerIdentityPort,
   ) { }
 
   async execute(input: DeleteAddressInput): Promise<DeleteAddressOutput> {
@@ -43,15 +44,14 @@ export class DeleteAddressUseCase {
 
     await this.addressRepo.remove(address);
 
-    if (wasLastAddress) {
-      await this.appStatusEventsPublisher.publishAppStatusUpdated(
-        createAppStatusUpdatedEvent({
-          userId: input.customerId,
-          updatedAt: new Date(),
-          onboardingStatus: OnboardingStatus.REQUIRED_ADDRESS,
-          accessToken: input.accessToken,
-        }),
-      );
+    let accessToken: string | undefined;
+    if (wasLastAddress && input.authorization) {
+      const result = await this.identityPort.updateOnboarding({
+        userId: input.customerId,
+        onboardingStatus: OnboardingStatus.REQUIRED_ADDRESS,
+        authorization: input.authorization,
+      });
+      accessToken = result.access_token;
     }
 
     return {
@@ -59,6 +59,7 @@ export class DeleteAddressUseCase {
         id: address.id,
         alias: address.alias,
       },
+      access_token: accessToken,
     };
   }
 }

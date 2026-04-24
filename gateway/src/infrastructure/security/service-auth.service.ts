@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HEADER_SERVICE_SECRET, SERVICE_SECRET } from '../../config/constants';
 
-
 @Injectable()
 export class ServiceAuthService {
   private readonly serviceSecret: string;

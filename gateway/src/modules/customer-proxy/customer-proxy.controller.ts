@@ -1,13 +1,25 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Req,
+} from '@nestjs/common';
 import { Request } from 'express';
+import { Role } from '../../config/constants';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ProxyService } from '../../infrastructure/http/proxy.service';
 
 /**
  * Proxy de clientes.
  * Reenvía las peticiones al customer service.
- * Todos los endpoints requieren JWT.
+ * Requiere JWT y rol CUSTOMER.
  */
+@Roles(Role.CUSTOMER)
 @Controller('customer')
 export class CustomerProxyController {
   constructor(private readonly proxy: ProxyService) {}
@@ -30,10 +42,7 @@ export class CustomerProxyController {
   }
 
   @Get('profile')
-  async getProfile(
-    @Req() req: Request,
-    @CurrentUser() user: any,
-  ) {
+  async getProfile(@Req() req: Request, @CurrentUser() user: any) {
     const result = await this.proxy.forwardAuthenticated(req, user, {
       method: 'GET',
       service: 'CUSTOMER',
@@ -75,10 +84,7 @@ export class CustomerProxyController {
   }
 
   @Get('address')
-  async getAddresses(
-    @Req() req: Request,
-    @CurrentUser() user: any,
-  ) {
+  async getAddresses(@Req() req: Request, @CurrentUser() user: any) {
     const result = await this.proxy.forwardAuthenticated(req, user, {
       method: 'GET',
       service: 'CUSTOMER',

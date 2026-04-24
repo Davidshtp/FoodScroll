@@ -1,1 +1,1 @@
-export * from './customer-events.port';
+export * from './customer-identity.port';

@@ -16,6 +16,7 @@ import { CodeProxyModule } from './modules/code-proxy/code-proxy.module';
 import { HealthModule } from './modules/health/health.module';
 import { LocationProxyModule } from './modules/location-proxy/location-proxy.module';
 import { CustomerProxyModule } from './modules/customer-proxy/customer-proxy.module';
+import { DeliveryProxyModule } from './modules/delivery-proxy/delivery-proxy.module';
 
 @Module({
   imports: [
@@ -25,10 +26,12 @@ import { CustomerProxyModule } from './modules/customer-proxy/customer-proxy.mod
     }),
 
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    ThrottlerModule.forRoot([{
-      ttl: 60,
-      limit: 60,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60,
+        limit: 60,
+      },
+    ]),
 
     InfrastructureModule,
 
@@ -37,6 +40,7 @@ import { CustomerProxyModule } from './modules/customer-proxy/customer-proxy.mod
     CodeProxyModule,
     LocationProxyModule,
     CustomerProxyModule,
+    DeliveryProxyModule,
     HealthModule,
   ],
   providers: [

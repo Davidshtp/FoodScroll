@@ -35,11 +35,15 @@ export class RuntVerificationAdapter implements RuntVerificationPort {
     });
   }
 
-  private getHeaders() {
+  private getHeaders(accessToken?: string) {
     const serviceSecret = this.configService.get<string>(SERVICE_SECRET);
-    return {
+    const headers: Record<string, string> = {
       [HEADER_SERVICE_SECRET]: serviceSecret || '',
     };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    return headers;
   }
 
   async verifyFullAuto(params: {
@@ -50,6 +54,7 @@ export class RuntVerificationAdapter implements RuntVerificationPort {
     maxAttempts?: number;
     retryDelayMs?: number;
     debug?: boolean;
+    accessToken?: string;
   }): Promise<RuntVerifyFullAutoResult> {
     const hasImage = params.imageBuffer && params.imageBuffer.length > 0;
     const hasOverrides = !!(
@@ -84,7 +89,7 @@ export class RuntVerificationAdapter implements RuntVerificationPort {
 
     try {
       const response = await this.http.post('/runt/verify-full-auto', payload, {
-        headers: this.getHeaders(),
+        headers: this.getHeaders(params.accessToken),
       });
       return response.data;
     } catch (error: any) {
@@ -127,10 +132,11 @@ export class RuntVerificationAdapter implements RuntVerificationPort {
     documentType: string;
     documentNumber: string;
     captchaText: string;
+    accessToken?: string;
   }): Promise<RuntVerifyResult> {
     try {
       const response = await this.http.post('/runt/verify-manual', params, {
-        headers: this.getHeaders(),
+        headers: this.getHeaders(params.accessToken),
       });
       return response.data;
     } catch (error: any) {

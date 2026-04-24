@@ -15,12 +15,12 @@ import { AddressOrmEntity } from '../../infrastructure/persistence/typeorm/entit
 // Infrastructure - Repositories
 import { TypeOrmCustomerProfileRepository } from '../../infrastructure/persistence/typeorm/repositories/typeorm-customer-profile.repository';
 import { TypeOrmAddressRepository } from '../../infrastructure/persistence/typeorm/repositories/typeorm-address.repository';
-import { NatsServiceEventsPublisher } from '../../infrastructure/messaging/nats/nats-service-events.publisher';
+import { IdentityServiceClient } from '../../infrastructure/http/identity-service.client';
 
 // Domain - Repository tokens
 import { CUSTOMER_PROFILE_REPOSITORY } from '../../domain/repositories/customer-profile.repository';
 import { ADDRESS_REPOSITORY } from '../../domain/repositories/address.repository';
-import { APP_STATUS_EVENTS_PUBLISHER } from '../../application/ports/customer-events.port';
+import { CUSTOMER_IDENTITY_PORT } from '../../application/ports/customer-identity.port';
 
 // Application - Use Cases (Customer Profile)
 import { CreateCustomerProfileUseCase } from '../../application/usecases/customer-profile/create-customer-profile.usecase';
@@ -94,8 +94,8 @@ import { JwtStrategy } from '../http/strategies';
       useClass: TypeOrmAddressRepository,
     },
     {
-      provide: APP_STATUS_EVENTS_PUBLISHER,
-      useClass: NatsServiceEventsPublisher,
+      provide: CUSTOMER_IDENTITY_PORT,
+      useClass: IdentityServiceClient,
     },
 
     // ───── Use Cases (Customer Profile) ─────

@@ -1,10 +1,20 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany, } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
 import { VehicleType } from '../../../../domain/enums';
 import { DeliveryProfileOrmEntity } from './delivery-profile.orm';
 import { VehicleSoatOrmEntity } from './vehicle-soat.orm';
 import { VehicleTechnoOrmEntity } from './vehicle-techno.orm';
 
-@Entity('vehicles')
+@Entity('vehicle')
 export class VehicleOrmEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -35,9 +45,6 @@ export class VehicleOrmEntity {
 
   @Column({ nullable: true })
   color: string;
-
-  @Column({ default: false })
-  isPrimary: boolean;
 
   @Column({ nullable: true })
   soatStatus: string;

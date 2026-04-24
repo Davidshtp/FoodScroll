@@ -22,7 +22,6 @@ export interface UpdateDeliveryProfileInput {
   gender?: Gender;
   vehicleType?: VehicleType;
   avatarUrl?: string;
-  isActive?: boolean;
 }
 
 export interface UpdateDeliveryProfileOutput {
@@ -47,6 +46,7 @@ export class UpdateDeliveryProfileUseCase {
     }
     const existing = result.profile;
 
+    const now = new Date();
     const updated = new DeliveryProfile(
       existing.id,
       existing.userId,
@@ -58,9 +58,9 @@ export class UpdateDeliveryProfileUseCase {
       input.birthDate ?? existing.birthDate,
       input.gender ?? existing.gender,
       input.vehicleType ?? existing.vehicleType,
-      input.isActive !== undefined ? input.isActive : existing.isActive,
       input.avatarUrl ?? existing.avatarUrl,
-      existing.activeVehicleId,
+      existing.createdAt,
+      now,
     );
 
     const saved = await this.profileRepo.save(updated);

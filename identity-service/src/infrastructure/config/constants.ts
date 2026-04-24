@@ -2,7 +2,6 @@
 export const SERVER_PORT = 'SERVER_PORT';
 export const JWT_SECRET_KEY = 'JWT_SECRET_KEY';
 export const SERVICE_SECRET = 'SERVICE_SECRET';
-export const NATS_URL = 'NATS_URL';
 
 // Database configuration keys
 export const DATABASE_HOST = 'DATABASE_HOST';

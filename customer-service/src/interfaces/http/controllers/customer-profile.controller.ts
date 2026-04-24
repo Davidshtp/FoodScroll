@@ -14,19 +14,21 @@ export class CustomerProfileController {
     private readonly updateProfileUseCase: UpdateCustomerProfileUseCase,
   ) {}
 
-  @Post()
+@Post()
   async create(
     @UserId() userId: string,
     @Headers('authorization') authorization: string,
     @Body() dto: CreateCustomerProfileDto,
   ) {
-    const accessToken = authorization?.replace('Bearer ', '');
     const result = await this.createProfileUseCase.execute({
       userId,
       ...dto,
-      accessToken,
+      authorization,
     });
-    return result.profile;
+    return {
+      ...result.profile,
+      access_token: result.access_token,
+    };
   }
 
   @Get()

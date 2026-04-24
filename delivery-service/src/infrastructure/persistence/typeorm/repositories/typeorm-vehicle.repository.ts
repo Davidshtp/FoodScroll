@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, DataSource } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Vehicle } from '../../../../domain/entities/vehicle.entity';
 import { VehicleSoat } from '../../../../domain/entities/vehicle-soat.entity';
 import { VehicleTechno } from '../../../../domain/entities/vehicle-techno.entity';
@@ -21,7 +21,6 @@ export class TypeOrmVehicleRepository implements VehicleRepository {
     private readonly soatRepo: Repository<VehicleSoatOrmEntity>,
     @InjectRepository(VehicleTechnoOrmEntity)
     private readonly technoRepo: Repository<VehicleTechnoOrmEntity>,
-    private readonly dataSource: DataSource,
   ) {}
 
   async save(vehicle: Vehicle): Promise<Vehicle> {
@@ -40,13 +39,6 @@ export class TypeOrmVehicleRepository implements VehicleRepository {
     return orm ? VehicleMapper.toDomain(orm) : null;
   }
 
-  async findByProfileId(profileId: string): Promise<Vehicle | null> {
-    const orm = await this.vehicleRepo.findOne({
-      where: { profileId, deletedAt: IsNull() },
-    });
-    return orm ? VehicleMapper.toDomain(orm) : null;
-  }
-
   async findAllByProfileId(profileId: string): Promise<Vehicle[]> {
     const orms = await this.vehicleRepo.find({
       where: { profileId, deletedAt: IsNull() },
@@ -54,51 +46,22 @@ export class TypeOrmVehicleRepository implements VehicleRepository {
     return orms.map(VehicleMapper.toDomain);
   }
 
-  async findActiveByProfileIdFromProfile(
-    profileId: string,
-    activeVehicleId: string,
-  ): Promise<Vehicle | null> {
-    if (!activeVehicleId) return null;
-    const orm = await this.vehicleRepo.findOne({
-      where: { id: activeVehicleId, profileId, deletedAt: IsNull() },
-    });
-    return orm ? VehicleMapper.toDomain(orm) : null;
-  }
-
   async softDelete(id: string): Promise<void> {
     await this.vehicleRepo.softDelete({ id });
-  }
-
-  async saveSoat(soat: VehicleSoat): Promise<VehicleSoat> {
-    const orm = VehicleSoatMapper.toOrm(soat);
-    if (soat.id) {
-      orm.id = soat.id;
-    }
-    const saved = await this.soatRepo.save(orm);
-    return VehicleSoatMapper.toDomain(saved);
   }
 
   async findSoatsByVehicleId(vehicleId: string): Promise<VehicleSoat[]> {
     const orms = await this.soatRepo.find({
       where: { vehicleId },
-      order: { issuedAt: 'DESC' },
+      order: { createdAt: 'DESC' },
     });
     return orms.map(VehicleSoatMapper.toDomain);
-  }
-
-  async saveTechno(techno: VehicleTechno): Promise<VehicleTechno> {
-    const orm = VehicleTechnoMapper.toOrm(techno);
-    if (techno.id) {
-      orm.id = techno.id;
-    }
-    const saved = await this.technoRepo.save(orm);
-    return VehicleTechnoMapper.toDomain(saved);
   }
 
   async findTechnosByVehicleId(vehicleId: string): Promise<VehicleTechno[]> {
     const orms = await this.technoRepo.find({
       where: { vehicleId },
-      order: { issuedAt: 'DESC' },
+      order: { createdAt: 'DESC' },
     });
     return orms.map(VehicleTechnoMapper.toDomain);
   }

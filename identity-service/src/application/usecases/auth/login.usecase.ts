@@ -20,6 +20,7 @@ export interface LoginOutput {
     email: string;
     role: Role;
     appStatus: string | null;
+    isActive: boolean;
   };
 }
 
@@ -59,6 +60,7 @@ export class LoginUseCase {
       client: input.client,
       tokenVersion: user.tokenVersion,
       appStatus: user.appStatus,
+      isActive: user.isActive,
     });
 
     const refreshToken = this.tokenGen.generateRefreshToken({
@@ -80,6 +82,7 @@ export class LoginUseCase {
         email: user.email,
         role: user.role,
         appStatus: user.appStatus,
+        isActive: user.isActive,
       },
     };
   }

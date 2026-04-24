@@ -9,6 +9,8 @@ interface ProxyOptions {
   body?: any;
   query?: Record<string, any>;
   headers?: Record<string, string>;
+  timeout?: number;
+  isMultipart?: boolean;
 }
 
 @Injectable()
@@ -31,6 +33,8 @@ export class ProxyService {
       headers: options.headers,
       cookies: options.cookies,
       correlationId: (req as any).correlationId,
+      timeout: options.timeout,
+      isMultipart: options.isMultipart,
     });
   }
 
@@ -55,6 +59,8 @@ export class ProxyService {
       correlationId: (req as any).correlationId,
       user,
       authorization,
+      timeout: options.timeout,
+      isMultipart: options.isMultipart,
     });
   }
 }

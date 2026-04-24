@@ -13,10 +13,10 @@ export class DeliveryProfile {
     public readonly documentNumber: string,
     public readonly birthDate: Date,
     public readonly gender: Gender,
-    public readonly vehicleType: VehicleType,
-    public readonly isActive: boolean,
+    public readonly vehicleType: VehicleType | null,
     public readonly avatarUrl: string | null,
-    public readonly activeVehicleId: string | null,
+    public readonly createdAt: Date,
+    public readonly updatedAt: Date,
   ) {}
 
   static create(
@@ -29,9 +29,10 @@ export class DeliveryProfile {
     documentNumber: string,
     birthDate: Date,
     gender: Gender,
-    vehicleType: VehicleType,
+    vehicleType: VehicleType | null,
     avatarUrl?: string,
   ): DeliveryProfile {
+    const now = new Date();
     return new DeliveryProfile(
       id,
       userId,
@@ -43,63 +44,9 @@ export class DeliveryProfile {
       birthDate,
       gender,
       vehicleType,
-      true,
       avatarUrl ?? null,
-      null,
-    );
-  }
-
-  deactivate(): DeliveryProfile {
-    return new DeliveryProfile(
-      this.id,
-      this.userId,
-      this.firstName,
-      this.lastName,
-      this.phone,
-      this.documentType,
-      this.documentNumber,
-      this.birthDate,
-      this.gender,
-      this.vehicleType,
-      false,
-      this.avatarUrl,
-      this.activeVehicleId,
-    );
-  }
-
-  updateAvatar(avatarUrl: string): DeliveryProfile {
-    return new DeliveryProfile(
-      this.id,
-      this.userId,
-      this.firstName,
-      this.lastName,
-      this.phone,
-      this.documentType,
-      this.documentNumber,
-      this.birthDate,
-      this.gender,
-      this.vehicleType,
-      this.isActive,
-      avatarUrl,
-      this.activeVehicleId,
-    );
-  }
-
-  setActiveVehicle(vehicleId: string): DeliveryProfile {
-    return new DeliveryProfile(
-      this.id,
-      this.userId,
-      this.firstName,
-      this.lastName,
-      this.phone,
-      this.documentType,
-      this.documentNumber,
-      this.birthDate,
-      this.gender,
-      this.vehicleType,
-      this.isActive,
-      this.avatarUrl,
-      vehicleId,
+      now,
+      now,
     );
   }
 }

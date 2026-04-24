@@ -72,6 +72,7 @@ import { JWT_SECRET_KEY } from '../../infrastructure/config/constants';
   exports: [
     USER_REPOSITORY,
     PASSWORD_HASHER,
+    TOKEN_GENERATOR,
     JwtAuthGuard,
     RolesGuard,
   ],

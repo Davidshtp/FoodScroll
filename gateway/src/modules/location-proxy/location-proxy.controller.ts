@@ -39,10 +39,7 @@ export class LocationProxyController {
 
   @Public()
   @Get('city/:id')
-  async findCityById(
-    @Param('id') id: string,
-    @Req() req: Request,
-  ) {
+  async findCityById(@Param('id') id: string, @Req() req: Request) {
     const result = await this.proxy.forwardPublic(req, {
       method: 'GET',
       service: 'LOCATION',

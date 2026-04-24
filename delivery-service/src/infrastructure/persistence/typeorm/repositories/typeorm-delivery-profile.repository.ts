@@ -5,6 +5,7 @@ import { DeliveryProfile } from '../../../../domain/entities/delivery-profile.en
 import { DeliveryProfileRepository } from '../../../../domain/repositories/delivery-profile.repository';
 import { DeliveryProfileOrmEntity } from '../entities/delivery-profile.orm';
 import { DeliveryProfileMapper } from '../mappers/delivery-profile.mapper';
+import { VehicleType } from '../../../../domain/enums/vehicle-type.enum';
 
 @Injectable()
 export class TypeOrmDeliveryProfileRepository implements DeliveryProfileRepository {
@@ -22,24 +23,17 @@ export class TypeOrmDeliveryProfileRepository implements DeliveryProfileReposito
     return DeliveryProfileMapper.toDomain(saved);
   }
 
-  async findById(id: string): Promise<DeliveryProfile | null> {
-    const orm = await this.ormRepo.findOne({ where: { id, deletedAt: IsNull() } });
-    return orm ? DeliveryProfileMapper.toDomain(orm) : null;
-  }
-
   async findByUserId(userId: string): Promise<DeliveryProfile | null> {
-    const orm = await this.ormRepo.findOne({ where: { userId, deletedAt: IsNull() } });
+    const orm = await this.ormRepo.findOne({
+      where: { userId, deletedAt: IsNull() },
+    });
     return orm ? DeliveryProfileMapper.toDomain(orm) : null;
   }
 
-  async setActiveVehicle(
+  async updateVehicleType(
     profileId: string,
-    vehicleId: string | null,
+    vehicleType: VehicleType | null,
   ): Promise<void> {
-    await this.ormRepo.update(profileId, { activeVehicleId: vehicleId });
-  }
-
-  async delete(id: string): Promise<void> {
-    await this.ormRepo.softDelete({ id });
+    await this.ormRepo.update({ id: profileId }, { vehicleType });
   }
 }

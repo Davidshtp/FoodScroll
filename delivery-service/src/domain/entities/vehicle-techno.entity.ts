@@ -49,6 +49,6 @@ export class VehicleTechno {
   isVigente(): boolean {
     if (this.status !== 'VIGENTE') return false;
     if (!this.expiresAt) return false;
-    return this.expiresAt >= new Date();
+    return this.expiresAt.getTime() >= Date.now();
   }
 }

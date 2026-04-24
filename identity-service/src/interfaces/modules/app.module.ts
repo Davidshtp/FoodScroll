@@ -10,6 +10,7 @@ import { CodeModule } from './code.module';
 
 // Controllers
 import { AppController } from '../http/controllers/app.controller';
+import { UserController } from '../http/controllers/user.controller';
 
 // Filters & Interceptors
 import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
@@ -22,8 +23,7 @@ import { ServiceSecretGuard } from '../http/guards/service-secret.guard';
 import { UserOrmEntity } from '../../infrastructure/persistence/typeorm/entities/user.orm-entity';
 import { CodeOrmEntity } from '../../infrastructure/persistence/typeorm/entities/code.orm-entity';
 import {DATABASE_HOST,DATABASE_PORT,DATABASE_USER,DATABASE_PASSWORD,DATABASE_NAME} from '../../infrastructure/config/constants';
-import { AppStatusUpdatedConsumer } from '../../infrastructure/messaging/nats/app-status-updated.consumer';
-import { SyncUserAppStatusUseCase } from '../../application/usecases/events/sync-user-app-status.usecase';
+import { UpdateUserUseCase } from '../../application/usecases/user';
 
 @Module({
   imports: [
@@ -50,13 +50,12 @@ import { SyncUserAppStatusUseCase } from '../../application/usecases/events/sync
     AuthModule,
     CodeModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, UserController],
   providers: [
     { provide: APP_FILTER, useClass: DomainExceptionFilter },
     { provide: APP_GUARD, useClass: ServiceSecretGuard },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
-    SyncUserAppStatusUseCase,
-    AppStatusUpdatedConsumer,
+    UpdateUserUseCase,
   ],
 })
 export class AppModule {}

@@ -10,7 +10,6 @@ export class Vehicle {
     public readonly line: string | null,
     public readonly modelYear: number | null,
     public readonly color: string | null,
-    public readonly isPrimary: boolean,
     // SOAT (latest status only)
     public readonly soatStatus: string | null,
     public readonly soatExpiry: Date | null,
@@ -42,7 +41,6 @@ export class Vehicle {
       line || null,
       modelYear || null,
       color || null,
-      false,
       null,
       null,
       null,
@@ -51,60 +49,5 @@ export class Vehicle {
       new Date(),
       null,
     );
-  }
-
-  markAsPrimary(): Vehicle {
-    return new Vehicle(
-      this.id,
-      this.profileId,
-      this.vehicleType,
-      this.plate,
-      this.brand,
-      this.line,
-      this.modelYear,
-      this.color,
-      true,
-      this.soatStatus,
-      this.soatExpiry,
-      this.technoStatus,
-      this.technoExpiry,
-      this.createdAt,
-      new Date(),
-      this.deletedAt,
-    );
-  }
-
-  softDelete(): Vehicle {
-    return new Vehicle(
-      this.id,
-      this.profileId,
-      this.vehicleType,
-      this.plate,
-      this.brand,
-      this.line,
-      this.modelYear,
-      this.color,
-      false,
-      this.soatStatus,
-      this.soatExpiry,
-      this.technoStatus,
-      this.technoExpiry,
-      this.createdAt,
-      new Date(),
-      new Date(),
-    );
-  }
-
-  canWork(): boolean {
-    const now = new Date();
-    const soatValid =
-      this.soatExpiry &&
-      this.soatExpiry >= now &&
-      this.soatStatus === 'VIGENTE';
-    const technoValid =
-      this.technoExpiry &&
-      this.technoExpiry >= now &&
-      this.technoStatus === 'VIGENTE';
-    return !!(soatValid && technoValid);
   }
 }

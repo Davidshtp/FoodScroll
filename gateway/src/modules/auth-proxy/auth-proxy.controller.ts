@@ -1,8 +1,10 @@
-import {Controller,Post,Get,Req,Res,Body,} from '@nestjs/common';
+import { Controller, Post, Get, Patch, Req, Res, Body, Param } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Role } from '../../config/constants';
 import { HttpClientService } from '../../infrastructure/http/http-client.service';
 import { ProxyService } from '../../infrastructure/http/proxy.service';
 
@@ -103,6 +105,23 @@ export class AuthProxyController {
       method: 'GET',
       service: 'IDENTITY',
       path: '/auth/me',
+    });
+    return result.data;
+  }
+
+  @Roles(Role.ADMIN)
+  @Patch('users/:userId/onboarding')
+  async updateUserOnboarding(
+    @Param('userId') userId: string,
+    @Body() body: { isActive?: boolean; onboardingStatus?: string },
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'PATCH',
+      service: 'IDENTITY',
+      path: `/users/${userId}/onboarding`,
+      body,
     });
     return result.data;
   }

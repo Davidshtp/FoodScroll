@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { SERVER_PORT } from './config/constants';
 import { ValidationPipe, Logger } from '@nestjs/common';
 const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,10 +18,14 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
+  app.use(bodyParser.json({ limit: '10mb' }));
+  app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
 

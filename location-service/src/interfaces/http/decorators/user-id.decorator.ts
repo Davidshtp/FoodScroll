@@ -1,10 +1,4 @@
-import {
-  createParamDecorator,
-  ExecutionContext,
-  ForbiddenException,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { createParamDecorator, ExecutionContext, ForbiddenException, Logger, UnauthorizedException, } from '@nestjs/common';
 import { HEADER_USER_ID } from '../../../infrastructure/config/constants';
 
 export interface UserIdPayload {

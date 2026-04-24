@@ -4,7 +4,7 @@ import { Address } from '../../../domain/entities/address.entity';
 import { AddressRepository, ADDRESS_REPOSITORY } from '../../../domain/repositories/address.repository';
 import { CustomerProfileRepository, CUSTOMER_PROFILE_REPOSITORY } from '../../../domain/repositories/customer-profile.repository';
 import { CustomerProfileNotFoundError, AddressCoordinatesAlreadyExistsError } from '../../../domain/errors/domain.errors';
-import { OnboardingStatus, APP_STATUS_EVENTS_PUBLISHER, AppStatusEventsPublisher, createAppStatusUpdatedEvent } from '../../ports/customer-events.port';
+import { OnboardingStatus, CUSTOMER_IDENTITY_PORT, CustomerIdentityPort } from '../../ports/customer-identity.port';
 
 const ADDRESS_DUPLICATE_THRESHOLD_METERS = 30;
 
@@ -17,11 +17,12 @@ export interface CreateAddressInput {
   details?: string;
   latitude: number;
   longitude: number;
-  accessToken?: string;
+  authorization?: string;
 }
 
 export interface CreateAddressOutput {
   address: Address;
+  access_token?: string;
 }
 
 @Injectable()
@@ -31,8 +32,8 @@ export class CreateAddressUseCase {
     private readonly addressRepo: AddressRepository,
     @Inject(CUSTOMER_PROFILE_REPOSITORY)
     private readonly profileRepo: CustomerProfileRepository,
-    @Inject(APP_STATUS_EVENTS_PUBLISHER)
-    private readonly appStatusEventsPublisher: AppStatusEventsPublisher,
+    @Inject(CUSTOMER_IDENTITY_PORT)
+    private readonly identityPort: CustomerIdentityPort,
   ) { }
 
   async execute(input: CreateAddressInput): Promise<CreateAddressOutput> {
@@ -61,18 +62,17 @@ export class CreateAddressUseCase {
 
     await this.addressRepo.save(address);
 
-    if (wasFirstAddress) {
-      await this.appStatusEventsPublisher.publishAppStatusUpdated(
-        createAppStatusUpdatedEvent({
-          userId: profile.userId,
-          updatedAt: new Date(),
-          onboardingStatus: OnboardingStatus.COMPLETED,
-          accessToken: input.accessToken,
-        }),
-      );
+    let accessToken: string | undefined;
+    if (wasFirstAddress && input.authorization) {
+      const result = await this.identityPort.updateOnboarding({
+        userId: input.customerId,
+        onboardingStatus: OnboardingStatus.COMPLETED,
+        authorization: input.authorization,
+      });
+      accessToken = result.access_token;
     }
 
-    return { address };
+    return { address, access_token: accessToken };
   }
 
   private validateNoDuplicateCoordinates(

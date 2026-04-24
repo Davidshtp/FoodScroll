@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, Logger } from '@nestjs/common';
 const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser');
 import { GATEWAY_PORT } from './config/constants';
 
 async function bootstrap() {
@@ -16,6 +17,9 @@ async function bootstrap() {
   });
 
   app.use(cookieParser());
+  app.use(bodyParser.json({ limit: '10mb' }));
+  app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

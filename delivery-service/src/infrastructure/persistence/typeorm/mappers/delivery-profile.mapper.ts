@@ -14,9 +14,9 @@ export class DeliveryProfileMapper {
       orm.birthDate,
       orm.gender,
       orm.vehicleType,
-      orm.isActive,
       orm.avatarUrl ?? null,
-      orm.activeVehicleId ?? null,
+      orm.createdAt,
+      orm.updatedAt,
     );
   }
 
@@ -32,9 +32,7 @@ export class DeliveryProfileMapper {
     orm.birthDate = domain.birthDate;
     orm.gender = domain.gender;
     orm.vehicleType = domain.vehicleType;
-    orm.isActive = domain.isActive;
     orm.avatarUrl = domain.avatarUrl as any;
-    orm.activeVehicleId = (domain as any).activeVehicleId ?? null;
     return orm;
   }
 }

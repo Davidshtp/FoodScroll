@@ -31,9 +31,14 @@ import {
   VEHICLE_REPOSITORY,
 } from '../../domain/repositories';
 
-import { RUNT_VERIFICATION_PORT } from '../../application/ports';
+import {
+  RUNT_VERIFICATION_PORT,
+  DELIVERY_IDENTITY_PORT,
+} from '../../application/ports';
 
 import { RuntVerificationAdapter } from '../../infrastructure/http/runt-verification.adapter';
+
+import { IdentityServiceClient } from '../../infrastructure/http/identity-service.client';
 
 import {
   CreateDeliveryProfileUseCase,
@@ -45,6 +50,7 @@ import {
   RegisterVehicleUseCase,
   GetVehicleUseCase,
   ResolveCaptchaUseCase,
+  DeleteVehicleUseCase,
 } from '../../application/usecases/vehicle';
 
 import {
@@ -119,12 +125,17 @@ import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
       provide: RUNT_VERIFICATION_PORT,
       useClass: RuntVerificationAdapter,
     },
+    {
+      provide: DELIVERY_IDENTITY_PORT,
+      useClass: IdentityServiceClient,
+    },
     CreateDeliveryProfileUseCase,
     GetDeliveryProfileUseCase,
     UpdateDeliveryProfileUseCase,
     RegisterVehicleUseCase,
     GetVehicleUseCase,
     ResolveCaptchaUseCase,
+    DeleteVehicleUseCase,
     JwtStrategy,
     {
       provide: APP_GUARD,

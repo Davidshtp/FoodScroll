@@ -9,3 +9,7 @@ export {
   ResolveCaptchaInput,
   ResolveCaptchaOutput,
 } from './resolve-captcha.usecase';
+export {
+  DeleteVehicleUseCase,
+  DeleteVehicleOutput,
+} from './delete-vehicle.usecase';

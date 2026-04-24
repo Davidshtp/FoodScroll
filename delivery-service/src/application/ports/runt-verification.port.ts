@@ -9,6 +9,7 @@ export interface RuntVerificationPort {
     maxAttempts?: number;
     retryDelayMs?: number;
     debug?: boolean;
+    accessToken?: string;
   }): Promise<RuntVerifyFullAutoResult>;
 
   verifyManual(params: {
@@ -17,6 +18,7 @@ export interface RuntVerificationPort {
     documentType: string;
     documentNumber: string;
     captchaText: string;
+    accessToken?: string;
   }): Promise<RuntVerifyResult>;
 }
 

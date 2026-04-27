@@ -1,5 +1,5 @@
-import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
-import { DocumentType, Gender, VehicleType } from '../../../domain/enums';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { Gender } from '../../../domain/enums';
 import { IsColombianPhone } from '../validators/colombian.validators';
 
 export class UpdateDeliveryProfileDto {
@@ -17,24 +17,8 @@ export class UpdateDeliveryProfileDto {
   phone?: string;
 
   @IsOptional()
-  @IsEnum(DocumentType)
-  documentType?: DocumentType;
-
-  @IsOptional()
-  @IsString()
-  documentNumber?: string;
-
-  @IsOptional()
-  @IsDateString()
-  birthDate?: string;
-
-  @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
-
-  @IsOptional()
-  @IsEnum(VehicleType)
-  vehicleType?: VehicleType;
 
   @IsOptional()
   @IsString()

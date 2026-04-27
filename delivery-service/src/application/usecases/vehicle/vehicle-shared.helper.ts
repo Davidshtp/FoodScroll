@@ -35,7 +35,6 @@ export interface SaveVehicleInput {
   authorization?: string;
   identityPort?: DeliveryIdentityPort;
   userId?: string;
-  profileVehicleType?: VehicleType | null;
 }
 
 export interface SaveVehicleResult {

@@ -65,11 +65,7 @@ export class DeliveryProfileController {
       firstName: dto.firstName,
       lastName: dto.lastName,
       phone: dto.phone,
-      documentType: dto.documentType,
-      documentNumber: dto.documentNumber,
-      birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
       gender: dto.gender,
-      vehicleType: dto.vehicleType,
       avatarUrl: dto.avatarUrl,
     });
   }

@@ -1,10 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  DeliveryProfile,
-  DocumentType,
-  Gender,
-  VehicleType,
-} from '../../../domain';
+import { DeliveryProfile, Gender } from '../../../domain';
 import {
   DeliveryProfileRepository,
   DELIVERY_PROFILE_REPOSITORY,
@@ -16,11 +11,7 @@ export interface UpdateDeliveryProfileInput {
   firstName?: string;
   lastName?: string;
   phone?: string;
-  documentType?: DocumentType;
-  documentNumber?: string;
-  birthDate?: Date;
   gender?: Gender;
-  vehicleType?: VehicleType;
   avatarUrl?: string;
 }
 
@@ -53,11 +44,11 @@ export class UpdateDeliveryProfileUseCase {
       input.firstName ?? existing.firstName,
       input.lastName ?? existing.lastName,
       input.phone ?? existing.phone,
-      input.documentType ?? existing.documentType,
-      input.documentNumber ?? existing.documentNumber,
-      input.birthDate ?? existing.birthDate,
+      existing.documentType,
+      existing.documentNumber,
+      existing.birthDate,
       input.gender ?? existing.gender,
-      input.vehicleType ?? existing.vehicleType,
+      existing.vehicleType,
       input.avatarUrl ?? existing.avatarUrl,
       existing.createdAt,
       now,

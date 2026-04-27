@@ -117,7 +117,6 @@ export class ResolveCaptchaUseCase {
           authorization: input.authorization,
           identityPort: this.identityPort,
           userId: profile.userId,
-          profileVehicleType: profile.vehicleType,
         },
       );
 

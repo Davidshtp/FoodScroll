@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import Optional
 
 from src.infrastructure.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError, create_circuit_breaker
@@ -11,7 +10,7 @@ from src.scraper.runt_scraper import RuntScraper, get_scraper as get_runt_scrape
 logger = get_logger(__name__)
 
 
-def get_scraper() -> PlaywrightRuntScraperAdapter:
+def get_adapter() -> PlaywrightRuntScraperAdapter:
     return PlaywrightRuntScraperAdapter()
 
 
@@ -88,3 +87,14 @@ class PlaywrightRuntScraperAdapter(RuntScraperPort):
             await impl.discard_session(session_id)
         except Exception as e:
             logger.warning("Error discarding session: %s", e)
+
+    async def captcha_b64_from_session(self, session_id: str) -> Optional[str]:
+        logger.debug("Getting captcha from session: %s", session_id[:8])
+        impl = self._get_impl()
+        try:
+            result = await impl.captcha_b64_from_session(session_id)
+            logger.debug("Captcha extracted: length=%s", len(result) if result else 0)
+            return result
+        except Exception as e:
+            logger.warning("Error getting captcha from session: %s", e)
+            return None

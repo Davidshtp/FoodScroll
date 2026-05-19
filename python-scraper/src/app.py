@@ -6,17 +6,19 @@ from typing import Any, Dict
 from fastapi import Depends, FastAPI, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from src.infrastructure.logging import setup_logging
+from src.infrastructure.logging import get_logger, setup_logging
 from src.application.usecases.create_runt_session_usecase import CreateRuntSessionUseCase
 from src.application.usecases.discard_runt_session_usecase import DiscardRuntSessionUseCase
 from src.application.usecases.parse_license_usecase import ParseLicenseUseCase
 from src.application.usecases.verify_full_auto_usecase import VerifyFullAutoUseCase
 from src.application.usecases.verify_vehicle_usecase import VerifyVehicleUseCase
 from src.infrastructure.ocr.paddle_license_ocr_adapter import PaddleLicenseOcrAdapter
-from src.infrastructure.scraping.playwright_runt_scraper_adapter import get_scraper
+from src.infrastructure.scraping.playwright_runt_scraper_adapter import get_adapter
 from src.infrastructure.security.internal_auth import verify_internal_request
 from src.scraper.captcha_solver import CaptchaSolver
+from src.scraper.runt_scraper import get_page_pool
 
+logger = get_logger(__name__)
 setup_logging(os.getenv('LOG_LEVEL', 'INFO'))
 
 
@@ -28,18 +30,9 @@ class VerifyRequest(BaseModel):
     captchaText: str
 
 
-async def _session_cleanup_loop(scraper_impl) -> None:
-    while True:
-        try:
-            await scraper_impl.cleanup_expired_sessions(ttl_seconds=180)
-        except Exception:
-            pass
-        await asyncio.sleep(30)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    scraper_adapter = get_scraper()
+    scraper_adapter = get_adapter()
     ocr_adapter = PaddleLicenseOcrAdapter()
 
     app.state.parse_license_uc = ParseLicenseUseCase(ocr_adapter)
@@ -57,22 +50,20 @@ async def lifespan(app: FastAPI):
     # Warm OCR once to avoid lazy-init race/availability issues on first request.
     try:
         app.state.parse_license_uc.execute(b'')
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning('OCR warmup failed: %s', exc)
 
-    cleanup_task = asyncio.create_task(_session_cleanup_loop(scraper_adapter.get_impl()))
+    # Start the page pool
+    pool = get_page_pool()
+    await pool.start()
+
     try:
         yield
     finally:
-        cleanup_task.cancel()
-        try:
-            await cleanup_task
-        except BaseException:
-            pass
         try:
             await scraper_adapter.get_impl().close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning('Scraper close error: %s', exc)
 
 
 app = FastAPI(lifespan=lifespan)

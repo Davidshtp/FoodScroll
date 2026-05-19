@@ -1,5 +1,100 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Environment variables
 .env
-tmp/
-captcha_debug.png
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Data and models (específico para el scraper)
+data/captcha_dataset/
+models/captcha_char/
+models/captcha_seq/
+*.h5
+*.pkl
+*.pth
+*.joblib
+
+# Carpeta de imágenes de prueba
+imagenes de prueba/
+
+# Cache
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Dependencies
+node_modules/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# IDE workspace files
+.vscode/settings.json
+.vscode/extensions.json
+.idea/workspace.xml
+
+# Output/Generated files
+output/
+results/
+*.csv
+*.xlsx

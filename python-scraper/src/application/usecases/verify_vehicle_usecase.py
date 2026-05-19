@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from src.domain.ports.runt_scraper_port import RuntScraperPort
 
@@ -24,3 +24,6 @@ class VerifyVehicleUseCase:
             document_number=document_number,
             captcha_text=captcha_text,
         )
+
+    async def captcha_b64_from_session(self, session_id: str) -> Optional[str]:
+        return await self._scraper.captcha_b64_from_session(session_id)

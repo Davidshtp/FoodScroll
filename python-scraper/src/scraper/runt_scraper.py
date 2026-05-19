@@ -8,29 +8,275 @@ from typing import Any, Dict, Optional, List, Tuple
 import re
 import unicodedata
 
-from playwright.async_api import async_playwright, Browser, Page, Playwright
+from playwright.async_api import async_playwright, Browser, Page, Playwright, Route
 
 from src.infrastructure.logging import get_logger
 from src.scraper.selectors import RUNT_SELECTORS, RUNT_URL
 
 logger = get_logger(__name__)
 
-# Global singleton scraper
-_scraper_instance: Optional['RuntScraper'] = None
+# Page Pool singleton
+_page_pool_instance: Optional['RuntPagePool'] = None
 
-def get_scraper() -> 'RuntScraper':
-    global _scraper_instance
-    if _scraper_instance is None:
-        _scraper_instance = RuntScraper()
-    return _scraper_instance
+def get_page_pool() -> 'RuntPagePool':
+    global _page_pool_instance
+    if _page_pool_instance is None:
+        # Read environment variables here (lazy loading)
+        page_pool_min = int(os.getenv('PAGE_POOL_MIN', '1'))
+        page_pool_max = page_pool_min
+        page_pool_acquire_timeout = 5000
+        _page_pool_instance = RuntPagePool(
+            min_size=page_pool_min,
+            max_size=page_pool_max,
+            acquire_timeout=page_pool_acquire_timeout,
+        )
+    return _page_pool_instance
 
-# Global persistent browser and page
-_global_browser: Optional[Browser] = None
-_global_page: Optional[Page] = None
-_global_playwright: Optional[Playwright] = None
 
-# Session storage (global to persist across requests)
-_sessions_store: Dict[str, dict] = {}
+_BLOCK_RESOURCE_TYPES = {'font', 'stylesheet', 'media'}
+
+
+async def _route_handler(route: Route, request) -> None:
+    try:
+        rtype = request.resource_type
+    except Exception:
+        rtype = ''
+    if rtype in _BLOCK_RESOURCE_TYPES:
+        await route.abort()
+        return
+    # Image blocking disabled – allow all images
+    await route.continue_()
+
+
+async def _configure_page(page: Page) -> None:
+    try:
+        await page.route('**/*', _route_handler)
+    except Exception:
+        pass
+
+
+async def _install_modal_autoclose(page: Page) -> None:
+    script = """
+(() => {
+  if (window.__runtAutoCloseInstalled) return;
+  window.__runtAutoCloseInstalled = true;
+  const selectors = [
+    'body > div.swal2-container.swal2-center.swal2-backdrop-show > div > div.swal2-actions > button.swal2-confirm.swal2-styled',
+    'div.swal2-container.swal2-backdrop-show button.swal2-confirm',
+    'button.swal2-confirm.swal2-styled',
+    'button.swal2-confirm',
+  ];
+  const tryClose = () => {
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        try { el.click(); } catch (e) {}
+        return true;
+      }
+    }
+    return false;
+  };
+  const target = document.body || document.documentElement;
+  if (target) {
+    const obs = new MutationObserver(() => { tryClose(); });
+    obs.observe(target, { childList: true, subtree: true });
+  }
+  setTimeout(tryClose, 0);
+  setTimeout(tryClose, 150);
+  let attempts = 0;
+  const maxAttempts = 20;
+  const interval = setInterval(() => {
+    attempts += 1;
+    if (tryClose() || attempts >= maxAttempts) {
+      clearInterval(interval);
+    }
+  }, 100);
+})();
+"""
+    try:
+        if not getattr(page, '_runt_autoclose_init', False):
+            try:
+                await page.add_init_script(script)
+            except Exception:
+                pass
+            try:
+                setattr(page, '_runt_autoclose_init', True)
+            except Exception:
+                pass
+        await page.evaluate(script)
+    except Exception:
+        pass
+
+
+class RuntPagePool:
+    """Pool de páginas Playwright pre-navegadas al formulario RUNT."""
+
+    def __init__(self, min_size: int = 1, max_size: int = 30, acquire_timeout: int = 5000):
+        self._min = min_size
+        self._max = max_size
+        self._acquire_timeout_s = max(acquire_timeout, 0) / 1000.0
+        self._queue: asyncio.Queue[Page] = asyncio.Queue(maxsize=max_size)
+        self._browser: Optional[Browser] = None
+        self._playwright: Optional[Playwright] = None
+        self._lock = asyncio.Lock()
+        self._closed = False
+        self._total_created = 0
+        self._total_acquired = 0
+        self._refill_task: Optional[asyncio.Task] = None
+
+    async def start(self) -> None:
+        await self._ensure_browser()
+        # Attempt to warm up the pool up to min size, but tolerate failures per page
+        warmed_pages: list[Page] = []
+        for _ in range(self._min):
+            try:
+                page = await self._create_hot_page()
+                warmed_pages.append(page)
+            except Exception as e:
+                logger.warning('Failed to create warm page during start: %s', e)
+        for page in warmed_pages:
+            await self._queue.put(page)
+        self._refill_task = asyncio.create_task(self._refill_loop())
+        logger.info('PagePool started: %d pages warm (successful)', len(warmed_pages))
+
+    async def _ensure_browser(self) -> Browser:
+        if self._browser and self._browser.is_connected():
+            return self._browser
+        self._playwright = await async_playwright().start()
+        launch_kwargs: Dict[str, Any] = {
+            'headless': _is_headless(),
+            'args': ['--no-sandbox', '--disable-setuid-sandbox'],
+        }
+        self._browser = await self._playwright.chromium.launch(**launch_kwargs)
+        return self._browser
+
+    async def _create_hot_page(self) -> Page:
+        browser = await self._ensure_browser()
+        page = await browser.new_page()
+        await _configure_page(page)
+        await _install_modal_autoclose(page)
+        await page.goto(RUNT_URL, wait_until='domcontentloaded', timeout=20000)
+        await _install_modal_autoclose(page)
+        # Optionally wait for a known form element; ignore any timeout during warm-up
+        try:
+            selector = RUNT_SELECTORS.get('captcha_image') or ''
+            if selector:
+                await page.wait_for_selector(selector, timeout=3500)
+        except Exception:
+            pass
+        self._total_created += 1
+        return page
+
+    async def acquire(self) -> Page:
+        if self._closed:
+            raise RuntimeError('PagePool is closed')
+        try:
+            page = await asyncio.wait_for(self._queue.get(), timeout=self._acquire_timeout_s)
+            self._total_acquired += 1
+            return page
+        except asyncio.TimeoutError:
+            page = await self._create_hot_page()
+            self._total_acquired += 1
+            return page
+
+    def release(self, page: Page) -> None:
+        async def _requeue():
+            if self._closed:
+                # If pool is closed, close the page to free resources
+                await self._close_page(page)
+                return
+            try:
+                # Return the page back to the pool for reuse
+                await self._queue.put(page)
+            except Exception:
+                # If requeue fails, close the page to avoid leaks
+                await self._close_page(page)
+        task = asyncio.ensure_future(_requeue())
+        task.add_done_callback(lambda t: logger.warning('Requeue failed: %s', t.exception()) if t.exception() else None)
+
+    async def _close_page(self, page: Page) -> None:
+        try:
+            await page.close()
+        except Exception:
+            pass
+
+    async def _refill_loop(self) -> None:
+        while not self._closed:
+            try:
+                await asyncio.sleep(1)
+                if self._closed:
+                    break
+                current = self._queue.qsize()
+                if current < self._min:
+                    needed = min(self._min - current, self._max - self._queue.qsize())
+                    if needed <= 0:
+                        continue
+                    tasks = [self._create_hot_page() for _ in range(needed)]
+                    pages = await asyncio.gather(*tasks)
+                    for page in pages:
+                        if self._closed:
+                            await self._close_page(page)
+                        else:
+                            await self._queue.put(page)
+            except Exception:
+                pass
+
+    async def warm_one(self) -> None:
+        if self._closed:
+            return
+        try:
+            current = self._queue.qsize()
+        except Exception:
+            current = 0
+        if current >= self._min:
+            return
+        if current >= self._max:
+            return
+        try:
+            page = await self._create_hot_page()
+        except Exception as exc:
+            logger.warning('PagePool warm_one failed: %s', exc)
+        else:
+            await self._queue.put(page)
+
+    async def close(self) -> None:
+        self._closed = True
+        if self._refill_task:
+            self._refill_task.cancel()
+            try:
+                await self._refill_task
+            except Exception:
+                pass
+        while not self._queue.empty():
+            try:
+                page = self._queue.get_nowait()
+                await self._close_page(page)
+            except Exception:
+                pass
+        if self._browser:
+            try:
+                await self._browser.close()
+            except Exception:
+                pass
+            self._browser = None
+        if self._playwright:
+            try:
+                await self._playwright.stop()
+            except Exception:
+                pass
+            self._playwright = None
+
+    @property
+    def stats(self) -> Dict[str, Any]:
+        return {
+            'available': self._queue.qsize(),
+            'minSize': self._min,
+            'maxSize': self._max,
+            'acquireTimeoutMs': int(self._acquire_timeout_s * 1000),
+            'totalCreated': self._total_created,
+            'totalAcquired': self._total_acquired,
+            'closed': self._closed,
+        }
 
 
 def _is_headless() -> bool:
@@ -38,29 +284,26 @@ def _is_headless() -> bool:
     return raw in ('1', 'true', 'yes', 'on')
 
 
-async def _get_global_page() -> Tuple[Page, str]:
-    global _global_browser, _global_page, _global_playwright
-    
-    if _global_page is None or (_global_browser and not _global_browser.is_connected()):
-        _global_playwright = await async_playwright().start()
-        _global_browser = await _global_playwright.chromium.launch(
-            headless=_is_headless(),
-            args=['--no-sandbox', '--disable-setuid-sandbox'],
-        )
-        _global_page = await _global_browser.new_page()
-        await _global_page.goto(RUNT_URL, wait_until='domcontentloaded', timeout=15000)
-    
-    session_id = str(uuid.uuid4())
-    return _global_page, session_id
+# Global singleton scraper
+_scraper_instance: Optional['RuntScraper'] = None
+
+
+def get_scraper() -> 'RuntScraper':
+    global _scraper_instance
+    if _scraper_instance is None:
+        _scraper_instance = RuntScraper()
+    return _scraper_instance
+
+# Store de sesiones (id → {'page': Page, 'created_at': datetime})
+_sessions_store: Dict[str, dict] = {}
 
 class RuntScraper:
     """Scraper real para el portal RUNT usando Playwright"""
     
     def __init__(self):
-        self.playwright: Optional[Playwright] = None
-        self.browser: Optional[Browser] = None
         # runt.gov.co redirige a portalpublico; usar URL actual por defecto.
         self.runt_url = os.getenv('RUNT_URL', RUNT_URL)
+        self._sessions_lock: asyncio.Lock = asyncio.Lock()
 
     def _norm(self, s: str) -> str:
         s = s or ''
@@ -97,15 +340,11 @@ class RuntScraper:
             await page.wait_for_load_state('domcontentloaded', timeout=15000)
         except Exception:
             pass
-        try:
-            await page.wait_for_timeout(1500)
-        except Exception:
-            pass
-        for sel in [RUNT_SELECTORS.get('captcha_image'), RUNT_SELECTORS.get('plate_input'), 'input.mat-input-element']:
+        for sel in [RUNT_SELECTORS.get('captcha_image'), 'input[formcontrolname="placa"]', RUNT_SELECTORS.get('plate_input'), 'input.mat-input-element']:
             if not sel:
                 continue
             try:
-                await page.wait_for_selector(sel, timeout=5000)
+                await page.wait_for_selector(sel, timeout=3000)
                 return
             except Exception:
                 continue
@@ -200,73 +439,47 @@ class RuntScraper:
             except Exception:
                 pass
     
-    async def _get_browser(self) -> Browser:
-        """Obtiene o crea el navegador"""
-        try:
-            if self.browser and self.browser.is_connected():
-                return self.browser
-        except:
-            pass
-        
-        # Always create new
-        pw = await async_playwright().start()
-        self.playwright = pw
-        self.browser = await pw.chromium.launch(
-            headless=_is_headless(),
-            args=['--no-sandbox', '--disable-setuid-sandbox']
-        )
-        return self.browser
 
-    async def _safe_new_page(self):
-        """Crea una nueva pagina, recreando el browser si quedo en estado roto."""
-        try:
-            browser = await self._get_browser()
-            return await browser.new_page()
-        except Exception:
-            # Browser/playwright puede quedar zombie; recrear completamente.
-            try:
-                if self.browser:
-                    await self.browser.close()
-            except Exception:
-                pass
-            try:
-                if self.playwright:
-                    await self.playwright.stop()
-            except Exception:
-                pass
-
-            self.browser = None
-            self.playwright = None
-            browser = await self._get_browser()
-            return await browser.new_page()
     
     async def create_session(self) -> dict:
+        """Crea una sesión RUNT en la sección de consulta de vehículo y devuelve captcha.
+        Adquiere una página caliente del pool, espera a que el formulario esté listo
+        y extrae un captcha válido. Si la extracción falla, reintenta una vez recargando
+        la página. La página se guarda en `_sessions_store` bajo un UUID que será el
+        `sessionId` devuelto al cliente.
+        """
+        pool = get_page_pool()
+        page = await pool.acquire()
+        session_id = str(uuid.uuid4())
         try:
-            # Always use a fresh page so RUNT session/captcha is never stale.
-            page = await self._safe_new_page()
-            session_id = str(uuid.uuid4())
-
-            # Ensure a fresh captcha is rendered for each logical session.
+            # Asegurarse de que el formulario y el captcha estén cargados
             try:
                 await page.goto(self.runt_url, wait_until='domcontentloaded', timeout=20000)
             except Exception as e:
                 logger.warning("Failed to navigate to RUNT URL: %s", e)
             await self._wait_for_runt_form(page)
 
-            _sessions_store[session_id] = {'created_at': datetime.now(), 'page': page}
-
             captcha_b64 = ""
             try:
+                # Primero intento con timeout mayor para mayor fiabilidad
                 captcha_b64 = await self._extract_captcha_base64(page)
+                # Si sigue vacío, recargar y volver a intentar una vez
+                if not captcha_b64:
+                    await page.reload()
+                    await self._wait_for_runt_form(page)
+                    await _install_modal_autoclose(page)
+                    captcha_b64 = await self._extract_captcha_base64(page)
             except Exception as e:
-                logger.warning("Failed to extract captcha: %s", e)
-                captcha_b64 = ""
-            
-            logger.info("Session created: %s, has_captcha=%s", session_id[:8], bool(captcha_b64))
+                logger.warning('Error extrayendo captcha: %s', e)
+
+            async with self._sessions_lock:
+                _sessions_store[session_id] = {'created_at': datetime.now(), 'page': page}
+            logger.debug('Created RUNT vehicle session %s (captcha present=%s)', session_id[:8], bool(captcha_b64))
             return {'sessionId': session_id, 'captchaPngBase64': captcha_b64}
         except Exception as exc:
-            logger.error("Failed to create RUNT session: %s", exc)
-            raise RuntimeError(f'Could not create RUNT session: {str(exc)}') from exc
+            # Liberar la página al pool (se reutilizará si no está cerrada)
+            pool.release(page)
+            raise
 
     async def _extract_captcha_base64(self, page: Page) -> str:
         """Extract captcha robustly: prefer data URL, fallback to screenshot."""
@@ -344,40 +557,35 @@ class RuntScraper:
         document_number: str,
         captcha_text: str
     ) -> dict:
-        """Verifica un vehículo en RUNT"""
-        # Use the session page if it still exists
-        sess = _sessions_store.get(session_id)
+        """Envía los datos del vehículo y el captcha, y extrae la información.
+        Si la página asociada a `session_id` está disponible, se reutiliza; de lo
+        contrario se crea una página fresca.
+        """
+        async with self._sessions_lock:
+            sess = _sessions_store.get(session_id)
         if sess and sess.get('page'):
+            page = sess['page']
             try:
-                page = sess['page']
-                # Verify on existing page
-                result = await self._verify_on_page(
-                    page=page,
+                result = await self._verify_vehicle_on_page(
+                    page,
                     plate=plate,
                     document_type=document_type,
                     document_number=document_number,
                     captcha_text=captcha_text,
                 )
-                # Session page is one-shot for captcha flow; close it after verify.
-                _sessions_store.pop(session_id, None)
-                try:
-                    await page.close()
-                except Exception:
-                    pass
                 return result
             except Exception as e:
-                logger.warning("Session verify error, falling back to fresh page: %s", e)
-                try:
-                    if sess.get('page'):
-                        await sess['page'].close()
-                except Exception:
-                    pass
-                _sessions_store.pop(session_id, None)
-        
-        # Fallback to fresh page
-        return await self._verify_fresh(plate, document_type, document_number, captcha_text)
+                logger.warning('Session verification failed, discarding broken session: %s', e)
+                await self.discard_session(session_id)
+        # Fallback: crear página nueva y realizar la verificación
+        return await self._verify_vehicle_fresh(
+            plate=plate,
+            document_type=document_type,
+            document_number=document_number,
+            captcha_text=captcha_text,
+        )
 
-    async def _verify_on_page(
+    async def _verify_vehicle_core(
         self,
         page: Page,
         plate: str,
@@ -385,9 +593,33 @@ class RuntScraper:
         document_number: str,
         captcha_text: str,
     ) -> dict:
-        """Verifica usando una pagina existente (de create_session)."""
+        """Núcleo compartido de verificación: navega al formulario, lo rellena,
+        envía la consulta, detecta errores de captcha y extrae los datos."""
         try:
             api_payloads: List[Tuple[str, Any]] = []
+
+            dialog_state: Dict[str, str] = {'msg': ''}
+
+            def _is_captcha_invalid_msg(msg: str) -> bool:
+                m = self._norm(msg)
+                return 'captcha' in m and 'no es valido' in m
+
+            async def _handle_dialog(dialog) -> None:
+                try:
+                    dialog_state['msg'] = (dialog.message or '').strip()
+                except Exception:
+                    dialog_state['msg'] = ''
+                try:
+                    await dialog.accept()
+                except Exception:
+                    pass
+
+            def _on_dialog_evt(dialog) -> None:
+                try:
+                    task = asyncio.create_task(_handle_dialog(dialog))
+                    task.add_done_callback(lambda t: logger.warning('Dialog handler failed: %s', t.exception()) if t.exception() else None)
+                except Exception:
+                    pass
 
             def _on_response(resp):
                 try:
@@ -415,64 +647,100 @@ class RuntScraper:
             except Exception:
                 pass
 
+            try:
+                page.on('dialog', _on_dialog_evt)
+            except Exception:
+                pass
+
             # Ensure we are on the correct URL and UI is ready.
             try:
                 if page.url != self.runt_url:
-                    await page.goto(self.runt_url, wait_until='domcontentloaded', timeout=20000)
+                    await page.goto(self.runt_url, wait_until='domcontentloaded', timeout=15000)
             except Exception:
-                # If navigation fails, continue; selectors will tell.
                 pass
 
             await self._wait_for_runt_form(page)
 
-# Fill form - use fill() which works for placa and documento
+            # Fill form
             try:
                 await page.locator('input[formcontrolname="placa"]').fill(plate)
             except Exception:
                 pass
 
-            # Wait for captcha input to appear
-            await page.wait_for_timeout(800)
+            await page.wait_for_timeout(50)
 
             await self._select_document_type(page, document_type)
-            await page.wait_for_timeout(300)
 
             try:
                 await page.locator('input[formcontrolname="documento"]').fill(document_number)
             except Exception:
                 pass
 
-            await page.wait_for_timeout(800)
+            await page.wait_for_timeout(50)
 
             # CAPTCHA - CLICK first then TYPE (key for Angular)
             if captcha_text:
                 try:
                     captcha_input = page.locator('input[formcontrolname="captcha"]')
                     await captcha_input.click()
-                    await page.wait_for_timeout(300)
+                    await page.wait_for_timeout(50)
                     await captcha_input.fill(captcha_text)
                 except Exception:
                     pass
 
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(100)
 
             submit = await page.query_selector('button:has-text("Consultar")')
             if not submit:
                 submit = await page.query_selector('button[type="submit"]')
             if submit:
                 await submit.click()
-            else:
-                pass
 
-            # Wait for either a validation error or results.
+            await self._close_swal2_fast(page, total_ms=400, poll_ms=100)
+
+            for _ in range(3):
+                if dialog_state.get('msg'):
+                    break
+                await page.wait_for_timeout(40)
+
+            if _is_captcha_invalid_msg(dialog_state.get('msg', '')):
+                return {
+                    'error': True,
+                    'code': 'RUNT_CAPTCHA_INVALID',
+                    'message': dialog_state.get('msg') or 'El captcha no es valido',
+                    'raw': {'dialogMessage': dialog_state.get('msg', '')},
+                }
+
+            # También verificar el DOM por si el error se muestra como componente Angular
+            # (snackbar, mat-error, etc.) en lugar de browser dialog
             try:
-                await page.wait_for_load_state('networkidle', timeout=20000)
+                body_text = await page.evaluate("() => document.body.innerText")
+                if re.search(r'captcha.*no\s+es\s+v[áa]lido', body_text, re.IGNORECASE):
+                    await self._close_captcha_error(page)
+                    return {
+                        'error': True,
+                        'code': 'RUNT_CAPTCHA_INVALID',
+                        'message': 'El captcha no es valido',
+                        'raw': {'domMessage': body_text[:200]},
+                    }
             except Exception:
                 pass
 
-            await page.wait_for_timeout(4000)
-            
-            # Save page text for debugging
+            # Wait for ANY CYRConsultaVehiculoMS API response (indica que el submit procesó datos)
+            try:
+                await page.wait_for_response(
+                    lambda resp: resp.status == 200 and 'CYRConsultaVehiculoMS' in (resp.url or ''),
+                    timeout=12000,
+                )
+            except Exception:
+                pass
+            # Pequeña pausa para que Angular actualice el DOM con los datos recibidos
+            try:
+                await page.wait_for_timeout(500)
+            except Exception:
+                pass
+
+            # Extraer el texto de la página para debugging y extracción
             try:
                 page_text = await page.evaluate("() => document.body.innerText")
             except Exception:
@@ -481,17 +749,7 @@ class RuntScraper:
             # First pass extraction (before tab navigation)
             result = await self._extract_result_from_page(page, plate)
 
-            # Try to get SOAT/RTM from DOM by clicking tabs
-            try:
-                soat_data = await self._get_soat_rtm_data(page)
-                if soat_data:
-                    result['soatLatest'] = soat_data.get('soat')
-                    result['rtmLatest'] = soat_data.get('rtm')
-            except:
-                pass
-
-            # Convert captured API responses to JSON payloads (serializable)
-            # NOTE: do this after tab navigation to include SOAT/RTM API calls.
+            # Convert captured API responses to JSON payloads
             api_json: List[Tuple[str, Any]] = []
             for url, resp in api_payloads[-80:]:
                 try:
@@ -499,18 +757,26 @@ class RuntScraper:
                 except Exception:
                     continue
 
-            # Merge API-derived data (vehicle + raw + soat/rtm when available)
+            # Fetch SOAT/RTM via direct API calls using auth token from captured requests
+            auth_token = self._extract_auth_token_from_api_payloads(api_payloads)
+            if auth_token:
+                soat_payload = await self._fetch_soat_via_api(page, auth_token)
+                if soat_payload:
+                    api_json.append(('https://runtproapi.runt.gov.co/CYRConsultaVehiculoMS/soat', soat_payload))
+                rtm_payload = await self._fetch_rtm_via_api(page, auth_token)
+                if rtm_payload:
+                    api_json.append(('https://runtproapi.runt.gov.co/CYRConsultaVehiculoMS/rtms', rtm_payload))
+
+            # Merge API-derived data
             if api_json:
                 api_result = self._extract_from_api_payloads(api_json, plate)
                 api_soat, api_rtm = self._extract_soat_rtm_from_api_json(api_json)
 
-                # Prefer API vehicle info when available; keep DOM fallback otherwise.
                 if isinstance(api_result, dict):
                     if api_result.get('vehicleInfo'):
                         result['vehicleInfo'] = api_result.get('vehicleInfo')
                     result['rawApi'] = api_result.get('rawApi')
 
-                # Prefer explicit SOAT/RTM API payloads over DOM parsing.
                 if api_soat is not None:
                     result['soatLatest'] = api_soat
                 elif isinstance(api_result, dict) and api_result.get('soatLatest') is not None:
@@ -521,18 +787,15 @@ class RuntScraper:
                 elif isinstance(api_result, dict) and api_result.get('rtmLatest') is not None:
                     result['rtmLatest'] = api_result.get('rtmLatest')
 
-                # Build normalized histories from real API payloads.
                 soat_history, rtm_history = self._extract_normalized_histories_from_api_json(api_json)
                 result['soatHistory'] = soat_history
                 result['rtmHistory'] = rtm_history
 
-                # Ensure latest records are aligned with history ordering.
                 if soat_history:
                     result['soatLatest'] = soat_history[0]
                 if rtm_history:
                     result['rtmLatest'] = rtm_history[0]
 
-                # Add compact normalized block for downstream consumers.
                 result['normalized'] = {
                     'vehicle': result.get('vehicleInfo', {}),
                     'soat': {
@@ -547,12 +810,157 @@ class RuntScraper:
 
             return self._build_public_vehicle_response(result)
         except Exception as e:
-            logger.error("Verify error on session page: %s", e)
+            logger.error("Verify error: %s", e)
             return {
                 'error': True,
                 'code': 'RUNT_VERIFY_ERROR',
                 'message': str(e),
             }
+        finally:
+            try:
+                page.remove_listener('response', _on_response)
+            except Exception:
+                pass
+            try:
+                page.remove_listener('dialog', _on_dialog_evt)
+            except Exception:
+                pass
+
+    async def _verify_vehicle_on_page(
+        self,
+        page: Page,
+        plate: str,
+        document_type: str,
+        document_number: str,
+        captcha_text: str,
+    ) -> dict:
+        """Reutiliza una página existente para verificar el vehículo."""
+        return await self._verify_vehicle_core(page, plate, document_type, document_number, captcha_text)
+
+    async def _verify_vehicle_fresh(
+        self,
+        plate: str,
+        document_type: str,
+        document_number: str,
+        captcha_text: str,
+    ) -> dict:
+        """Adquiere una página caliente del pool para verificar el vehículo."""
+        pool = get_page_pool()
+        page = await pool.acquire()
+        try:
+            return await self._verify_vehicle_core(page, plate, document_type, document_number, captcha_text)
+        finally:
+            pool.release(page)
+
+    def _extract_auth_token_from_api_payloads(self, api_payloads: List[Tuple[str, Any]]) -> str:
+        """Extract the auth-token header from any captured API request."""
+        for _url, resp in api_payloads:
+            try:
+                headers = resp.request.headers
+                token = headers.get('auth-token', '')
+                if token:
+                    logger.debug('auth-token found from %s', _url)
+                    return token
+            except Exception:
+                continue
+        return ''
+
+    async def _fetch_soat_via_api(self, page: Page, auth_token: str) -> Any:
+        """Fetch SOAT data via direct API call."""
+        if not auth_token:
+            return None
+        try:
+            resp = await page.request.get(
+                'https://runtproapi.runt.gov.co/CYRConsultaVehiculoMS/soat',
+                headers={
+                    'accept': 'application/json, text/plain, */*',
+                    'auth-token': auth_token,
+                    'x-funcionalidad': 'SHELL',
+                },
+                timeout=15000,
+            )
+            if resp.ok:
+                data = await resp.json()
+                if isinstance(data, list):
+                    return data
+                if isinstance(data, dict):
+                    return data
+            return None
+        except Exception as e:
+            logger.warning('Error fetching SOAT via API: %s', e)
+            return None
+
+    async def _fetch_rtm_via_api(self, page: Page, auth_token: str) -> Any:
+        """Fetch RTM data via direct API call."""
+        if not auth_token:
+            return None
+        try:
+            resp = await page.request.get(
+                'https://runtproapi.runt.gov.co/CYRConsultaVehiculoMS/rtms?tipo=N',
+                headers={
+                    'accept': 'application/json, text/plain, */*',
+                    'auth-token': auth_token,
+                    'x-funcionalidad': 'SHELL',
+                },
+                timeout=15000,
+            )
+            if resp.ok:
+                return await resp.json()
+            return None
+        except Exception as e:
+            logger.warning('Error fetching RTM via API: %s', e)
+            return None
+
+    async def captcha_b64_from_session(self, session_id: str) -> Optional[str]:
+        """Extrae la imagen CAPTCHA actual de una sesión existente,
+        SIN crear una nueva página ni descartar la sesión."""
+        async with self._sessions_lock:
+            sess = _sessions_store.get(session_id)
+        if not sess or not sess.get('page'):
+            return None
+        page = sess['page']
+        try:
+            img = page.locator(
+                'img[src*="captcha"], img[alt*="captcha"], '
+                '.captcha-img, #captcha-img, '
+                'img[formcontrolname="captcha"], '
+                '.captcha-container img, '
+                'app-captcha img'
+            )
+            if await img.count() > 0:
+                buf = await img.first.screenshot(format='png')
+                if buf:
+                    return base64.b64encode(buf).decode()
+        except Exception:
+            pass
+        # Fallback: si el localizador no encontró nada, evaluar JS para buscar el img
+        try:
+            src = await page.evaluate("""() => {
+                const imgs = document.querySelectorAll('img');
+                for (const img of imgs) {
+                    const src = (img.src || '').toLowerCase();
+                    if (src.includes('captcha')) {
+                        // use cross-origin canvas to screenshot it
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth || 200;
+                        canvas.height = img.naturalHeight || 60;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return '';
+                        try {
+                            ctx.drawImage(img, 0, 0);
+                            return canvas.toDataURL('image/png').split(',')[1];
+                        } catch(e) {
+                            return '';
+                        }
+                    }
+                }
+                return '';
+            }""")
+            if src:
+                return src
+        except Exception:
+            pass
+        return None
 
     def _extract_from_api_payloads(self, api_json: List[Tuple[str, Any]], plate: str) -> Optional[Dict[str, Any]]:
         """Heuristically map CYRConsultaVehiculoMS API JSON into our expected shape."""
@@ -905,70 +1313,6 @@ class RuntScraper:
 
         return normalized_soat, normalized_rtm
     
-    async def _verify_fresh(self, plate: str, document_type: str, document_number: str, captcha_text: str) -> dict:
-        page = None
-        try:
-            page = await self._safe_new_page()
-            
-            await page.goto(self.runt_url, wait_until='domcontentloaded', timeout=20000)
-            await self._wait_for_runt_form(page)
-
-            try:
-                await page.locator('input[formcontrolname="placa"]').fill(plate)
-            except Exception:
-                pass
-
-            await page.wait_for_timeout(800)
-
-            await self._select_document_type(page, document_type)
-            await page.wait_for_timeout(400)
-
-            try:
-                await page.locator('input[formcontrolname="documento"]').fill(document_number)
-            except Exception:
-                pass
-
-            await page.wait_for_timeout(800)
-
-            if captcha_text:
-                try:
-                    await page.locator('input[formcontrolname="captcha"]').fill(captcha_text)
-                except Exception:
-                    pass
-            
-            await page.wait_for_timeout(500)
-            
-            submit = await page.query_selector('button:has-text("Consultar")')
-            if not submit:
-                submit = await page.query_selector('button[type="submit"]')
-            
-            if submit:
-                await submit.click()
-            
-            # Esperar resultado
-            try:
-                await page.wait_for_load_state('networkidle', timeout=20000)
-            except Exception:
-                pass
-            await page.wait_for_timeout(2500)
-
-            result = await self._extract_result_from_page(page, plate)
-            
-            if page:
-                await page.close()
-            
-            return result
-            
-        except Exception as e:
-            logger.error("Verify error on fresh page: %s", e)
-            if page:
-                await page.close()
-            return {
-                'error': True,
-                'code': 'RUNT_VERIFY_ERROR',
-                'message': str(e)
-            }
-
     async def _extract_result_from_page(self, page: Page, plate: str) -> dict:
         """Extrae resultados reales desde el DOM (best-effort)."""
 
@@ -1199,186 +1543,91 @@ class RuntScraper:
 
         return result
     
-    def get_session(self, session_id: str) -> Optional[dict]:
-        return _sessions_store.get(session_id)
-
     async def discard_session(self, session_id: str) -> None:
-        data = _sessions_store.pop(session_id, None)
+        async with self._sessions_lock:
+            data = _sessions_store.pop(session_id, None)
         if data and data.get('page'):
+            page = data['page']
             try:
-                await data['page'].close()
-                logger.debug("Session discarded: %s", session_id[:8])
+                await page.close()
+                logger.debug('Session closed and removed: %s', session_id[:8])
             except Exception as e:
-                logger.warning("Error closing session page: %s", e)
-    
-    async def _get_soat_rtm_data(self, page: Page) -> dict:
-        """Click on SOAT and RTM tabs and extract their data"""
-        soat_result: Optional[Dict[str, Any]] = None
-        rtm_result: Optional[Dict[str, Any]] = None
-        
+                logger.warning('Error closing session page: %s', e)
         try:
-            await page.wait_for_timeout(2000)
+            pool = get_page_pool()
+            task = asyncio.create_task(pool.warm_one())
+            task.add_done_callback(lambda t: logger.warning('Warm_one failed: %s', t.exception()) if t.exception() else None)
+        except Exception as e:
+            logger.warning('Failed to trigger warm_one: %s', e)
 
-            async def click_tab(tab_type: str) -> bool:
-                names = ['SOAT'] if tab_type == 'soat' else ['RTM', 'TECNOMECANICA', 'TECNOMECÁNICA']
-                for name in names:
-                    # 1) Role-based locator (Angular Material tabs)
-                    try:
-                        role_tab = page.get_by_role('tab', name=re.compile(name, re.I))
-                        if await role_tab.count() > 0:
-                            await role_tab.first.click()
-                            await page.wait_for_load_state('networkidle', timeout=10000)
-                            await page.wait_for_timeout(1500)
-                            return True
-                    except Exception:
-                        pass
-
-                    # 2) Text locator fallback
-                    try:
-                        txt = page.get_by_text(re.compile(name, re.I))
-                        if await txt.count() > 0:
-                            await txt.first.click()
-                            await page.wait_for_load_state('networkidle', timeout=10000)
-                            await page.wait_for_timeout(1500)
-                            return True
-                    except Exception:
-                        pass
-
-                    # 3) CSS fallback
-                    selectors = [
-                        f'div[role="tab"]:has-text("{name}")',
-                        f'.mat-tab-label:has-text("{name}")',
-                        f'button:has-text("{name}")',
-                        f'a:has-text("{name}")',
-                    ]
-                    for sel in selectors:
-                        try:
-                            node = page.locator(sel)
-                            if await node.count() > 0:
-                                await node.first.click()
-                                await page.wait_for_load_state('networkidle', timeout=10000)
-                                await page.wait_for_timeout(1500)
-                                return True
-                        except Exception:
-                            continue
+    async def _close_swal2_once(self, page: Page, timeout_ms: int = 150) -> bool:
+        try:
+            container = page.locator('div.swal2-container')
+            if await container.count() == 0:
                 return False
+            button = page.locator('button.swal2-confirm')
+            if await button.count() > 0:
+                await button.first.click(timeout=timeout_ms, force=True)
+            else:
+                try:
+                    await page.keyboard.press('Escape')
+                except Exception:
+                    pass
+            try:
+                await container.first.wait_for(state='hidden', timeout=timeout_ms)
+            except Exception:
+                pass
+            return True
+        except Exception:
+            return False
 
-            # Click SOAT tab and extract
-            soat_clicked = await click_tab('soat')
-            if soat_clicked:
-                pairs = await self._extract_key_value_pairs(page)
-                soat_info: Dict[str, Any] = {}
-                for key, value in pairs.items():
-                    k_lower = key.lower()
-                    if (
-                        'poliza' in k_lower
-                        or 'póliza' in k_lower
-                        or 'entidad' in k_lower
-                        or 'vigencia' in k_lower
-                        or 'soat' in k_lower
-                        or 'asegur' in k_lower
-                        or 'estado' in k_lower
-                    ):
-                        soat_info[key] = value
-                if soat_info:
-                    soat_result = soat_info
+    async def _close_swal2_fast(self, page: Page, total_ms: int = 1200, poll_ms: int = 100) -> bool:
+        try:
+            attempts = max(1, int(total_ms / max(poll_ms, 1)))
+        except Exception:
+            attempts = 1
+            poll_ms = 100
+        for _ in range(attempts):
+            if await self._close_swal2_once(page, timeout_ms=poll_ms):
+                return True
+            try:
+                await page.wait_for_timeout(poll_ms)
+            except Exception:
+                break
+        return False
 
-            # Click RTM tab and extract
-            rtm_clicked = await click_tab('rtm')
-            if rtm_clicked:
-                pairs = await self._extract_key_value_pairs(page)
-                rtm_info: Dict[str, Any] = {}
-                for key, value in pairs.items():
-                    k_lower = key.lower()
-                    if (
-                        'certificado' in k_lower
-                        or 'tecnomecanica' in k_lower
-                        or 'tecnomecánica' in k_lower
-                        or 'rtm' in k_lower
-                        or 'revision' in k_lower
-                        or 'revisión' in k_lower
-                        or 'cda' in k_lower
-                        or 'vigencia' in k_lower
-                        or 'estado' in k_lower
-                    ):
-                        rtm_info[key] = value
-                if rtm_info:
-                    rtm_result = rtm_info
-                 
+    async def _close_captcha_error(self, page: Page) -> None:
+        try:
+            if await self._close_swal2_fast(page, total_ms=400, poll_ms=100):
+                return
         except Exception:
             pass
-        
-        return {'soat': soat_result, 'rtm': rtm_result}
-    
-    async def _extract_key_value_pairs(self, page: Page) -> dict:
-        """Extract all key-value pairs from the page"""
         try:
-            pairs = await page.evaluate('''() => {
-                const out = {};
-                const keywords = ['poliza', 'vigencia', 'entidad', 'estado', 'fecha', 'certificado', 'tipo', 'cda', 'revision', 'expedicion', 'tecnomecanica', 'soat', 'rtm'];
-                
-                // Get from tables
-                const tables = Array.from(document.querySelectorAll('table'));
-                for (const t of tables) {
-                    for (const tr of Array.from(t.querySelectorAll('tr'))) {
-                        const cells = Array.from(tr.querySelectorAll('th, td'))
-                            .map(c => (c.innerText || '').trim())
-                            .filter(Boolean);
-                        if (cells.length >= 2) {
-                            const label = cells[0].trim();
-                            const value = cells[1].trim();
-                            const lower = label.toLowerCase();
-                            if (keywords.some(k => lower.includes(k))) {
-                                out[label] = value;
-                            }
-                        }
-                    }
-                }
-                
-                // Get from divs/spans with colons
-                const allEls = Array.from(document.querySelectorAll('div, span, p, label, strong'));
-                for (const el of allEls) {
-                    const txt = (el.innerText || '').trim();
-                    if (!txt) continue;
-                    const idx = txt.indexOf(':');
-                    if (idx > 3 && idx < 60) {
-                        const label = txt.slice(0, idx).trim();
-                        const value = txt.slice(idx + 1).trim();
-                        const lower = label.toLowerCase();
-                        if (keywords.some(k => lower.includes(k)) && value) {
-                            out[label] = value;
-                        }
-                    }
-                }
-                
-                return out;
-            }''')
-            return pairs if pairs else {}
+            btn = page.locator('button:has-text("Aceptar")')
+            if await btn.count() > 0:
+                await btn.first.click(timeout=150, force=True)
+                return
         except Exception:
-            return {}
-    
-    async def cleanup_expired_sessions(self, ttl_seconds: int = 180):
-        now = datetime.now()
-        expired = [
-            sid for sid, data in _sessions_store.items()
-            if (now - data['created_at']).total_seconds() > ttl_seconds
-        ]
-        for sid in expired:
-            data = _sessions_store.pop(sid, None)
-            if data and data.get('page'):
-                try:
-                    await data['page'].close()
-                except:
-                    pass
-    
+            pass
+        try:
+            await page.keyboard.press('Escape')
+        except Exception:
+            pass
+
     async def close(self):
-        if self.browser:
+        """Cierra páginas/sesiones del scraper. El pool se cierra por separado en lifespan."""
+        pages_to_close: List[Page] = []
+        async with self._sessions_lock:
+            for sid, data in list(_sessions_store.items()):
+                page = data.get('page')
+                if page:
+                    pages_to_close.append(page)
+            _sessions_store.clear()
+        for page in pages_to_close:
             try:
-                await self.browser.close()
-            except:
+                await page.close()
+            except Exception:
                 pass
-        if self.playwright:
-            try:
-                await self.playwright.stop()
-            except:
-                pass
+        # Close the page pool
+        pool = get_page_pool()
+        await pool.close()

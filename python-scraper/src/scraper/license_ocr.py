@@ -203,6 +203,7 @@ class LicenseOCR:
         candidates.sort(key=lambda x: x[0])
         return [it for _, it in candidates]
 
+
     def _clean_plate(self, s: str) -> str:
         s = re.sub(r'[^A-Z0-9]', '', s.upper())
         if len(s) < 6:
@@ -224,6 +225,7 @@ class LicenseOCR:
         except Exception:
             return ''
         return s
+
 
     def parse(self, image_bytes) -> dict:
         self._ensure_ocr()
@@ -270,31 +272,70 @@ class LicenseOCR:
         doc_number = ''
         doc_type = 'CC'
 
-        placa_anchor = self._find_anchor(items, ['PLACA'])
-        placa_below = self._find_below_same_column(items, placa_anchor, max_dx=160, max_dy=500)
-        for it in placa_below[:5]:
-            plate = self._clean_plate(it['text'])
-            if plate:
+        # Claves y extracción robusta para la placa
+        placa_anchor = self._find_anchor(items, [
+            'PLACA'
+        ])
+        placa_below = self._find_below_same_column(items, placa_anchor, max_dx=100, max_dy=140)
+        # Buscar sólo el bloque más inmediato debajo
+        for it in placa_below[:1]:
+            candidate_plate = self._clean_plate(it['text'])
+            if candidate_plate:
+                plate = candidate_plate
                 break
+        # Si no, buscar placa solo en todo el texto de los items
+        if not plate:
+            for it in items:
+                candidate_plate = self._clean_plate(it['text'])
+                if candidate_plate:
+                    plate = candidate_plate
+                    break
 
-        doc_anchor = self._find_anchor(items, ['IDENTIFICACION'])
-        if not doc_anchor:
-            doc_anchor = self._find_anchor(items, ['C.C', 'CC', 'CEDULA'])
-
+        # Claves robustas para documento
+        doc_anchor = self._find_anchor(items, [
+            'IDENTIFICACION', 'CEDULA', 'CC', 'DOCUMENTO', 'C.C'
+        ])
         if doc_anchor and not doc_number:
             doc_number = self._clean_doc(doc_anchor.get('text', ''))
-
-        doc_below = self._find_below_same_column(items, doc_anchor, max_dx=200, max_dy=600)
-        for it in doc_below[:8]:
-            doc_number = self._clean_doc(it['text'])
-            if doc_number:
+        # Buscar debajo en max 3 bloques, inmediato
+        doc_below = self._find_below_same_column(items, doc_anchor, max_dx=120, max_dy=320)
+        for it in doc_below[:3]:
+            candidate_doc = self._clean_doc(it['text'])
+            if candidate_doc:
+                doc_number = candidate_doc
                 break
 
+        # Fallback global de placa
         if not plate:
             text_all = ''.join([self._norm_text(it['text']).replace(' ', '') for it in items])
-            m = re.search(r'([A-Z]{3}\d{2}[A-Z]|[A-Z]{3}\d{3})', text_all)
-            if m:
-                plate = self._clean_plate(m.group(1))
+            match = re.search(r'([A-Z]{3}\d{3}|[A-Z]{3}\d{2}[A-Z])', text_all)
+            if match:
+                plate = self._clean_plate(match.group(1))
+        # Si no se encontró, buscar en esquina inferior derecha (truco para layouts que pones el doc ahí)
+        if not doc_number and items:
+            edge_candidates = []
+            # Buscamos todos los bloques que tengan texto numérico tipo documento
+            for it in items:
+                cleaned = self._clean_doc(it['text'])
+                if cleaned:
+                    # Usamos la suma de X+Y del centro del bbox para calcular qué tan abajo a la derecha está
+                    cx, cy = self._bbox_center(it['bbox'])
+                    edge_candidates.append((cx + cy, cleaned))
+            if edge_candidates:
+                # Tomamos el más abajo/derecha
+                edge_candidates.sort(reverse=True)
+                doc_number = edge_candidates[0][1]
+
+        # Fallback global de documento
+        if not doc_number:
+            text_all = ' '.join([self._norm_text(it['text']) for it in items])
+            nums = re.findall(r'\d{7,10}', text_all.replace(' ', ''))
+            for n in nums:
+                candidate_doc = self._clean_doc(n)
+                if candidate_doc:
+                    doc_number = candidate_doc
+                    break
+
 
         if not doc_number:
             text_all = ' '.join([self._norm_text(it['text']) for it in items])

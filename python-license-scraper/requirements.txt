@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+Pillow
+opencv-python
+python-dotenv
+numpy
+paddleocr==3.4.0
+paddlepaddle==3.2.2
+PyJWT
+playwright

@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.Python
+*.egg
+
+# Virtual Environments
+venv/
+.venv
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Project specific
+tmp/
+captcha_debug.png
+*.log
+*.pid
+
+# Playwright
+.playwright/
+playwright/.cache
+
+# OS
+Thumbs.db
+.DS_Store

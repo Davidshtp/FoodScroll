@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import time
 from typing import Any, Dict, List, Tuple
 
 from src.infrastructure.logging import get_logger
@@ -32,8 +33,8 @@ class VerifyFullAutoUseCase:
         if self._discard_session_uc and session_id:
             try:
                 await self._discard_session_uc.execute(session_id)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning('Session discard failed: %s', exc)
 
     def _mask_session_id(self, session_id: str) -> str:
         sid = (session_id or '').strip()
@@ -137,48 +138,55 @@ class VerifyFullAutoUseCase:
         last_error: Dict[str, Any] | None = None
         last_captcha_b64: str = ''
         last_session_id: str = ''
+        session_id: str = ''
+        captcha_b64: str = ''
 
         for attempt in range(1, max_attempts + 1):
             trace: Dict[str, Any] = {'attempt': attempt}
 
-            try:
-                session_result = await self._create_runt_session_uc.execute()
-            except Exception as exc:
-                failed_attempts += 1
-                logger.warning("Attempt %d: session creation failed: %s", attempt, exc)
-                last_error = {
-                    'error': True,
-                    'code': 'RUNT_SESSION_ERROR',
-                    'message': f'Error creando sesion: {str(exc)}',
-                }
-                trace['error'] = 'session_creation_failed'
-                if debug:
-                    attempt_traces.append(trace)
-                if attempt < max_attempts:
-                    await asyncio.sleep(max(retry_delay_ms, 0) / 1000)
-                continue
+            if not session_id:
+                # Solo crear sesión si no hay una activa (reutilizable en retry captcha)
+                try:
+                    session_result = await self._create_runt_session_uc.execute()
+                except Exception as exc:
+                    failed_attempts += 1
+                    logger.warning("Attempt %d: session creation failed: %s", attempt, exc)
+                    last_error = {
+                        'error': True,
+                        'code': 'RUNT_SESSION_ERROR',
+                        'message': f'Error creando sesion: {str(exc)}',
+                    }
+                    trace['error'] = 'session_creation_failed'
+                    if debug:
+                        attempt_traces.append(trace)
+                    if attempt < max_attempts:
+                        await asyncio.sleep(max(retry_delay_ms, 0) / 1000)
+                    continue
 
-            session_id = (session_result.get('sessionId') or '').strip()
-            captcha_b64 = (session_result.get('captchaPngBase64') or '').strip()
-            last_captcha_b64 = captcha_b64
-            last_session_id = session_id
-            trace['sessionIdMasked'] = self._mask_session_id(session_id)
+                session_id = (session_result.get('sessionId') or '').strip()
+                captcha_b64 = (session_result.get('captchaPngBase64') or '').strip()
+                last_captcha_b64 = captcha_b64
+                last_session_id = session_id
+                trace['sessionIdMasked'] = self._mask_session_id(session_id)
 
-            if not session_id or not captcha_b64:
-                failed_attempts += 1
-                last_error = {
-                    'error': True,
-                    'code': 'RUNT_SESSION_ERROR',
-                    'message': 'Sesion RUNT no retorno captcha valido',
-                }
-                trace['error'] = 'empty_session_or_captcha'
-                if debug:
-                    attempt_traces.append(trace)
-                if session_id:
-                    await self._discard_session(session_id)
-                if attempt < max_attempts:
-                    await asyncio.sleep(max(retry_delay_ms, 0) / 1000)
-                continue
+                if not session_id or not captcha_b64:
+                    failed_attempts += 1
+                    last_error = {
+                        'error': True,
+                        'code': 'RUNT_SESSION_ERROR',
+                        'message': 'Sesion RUNT no retorno captcha valido',
+                    }
+                    trace['error'] = 'empty_session_or_captcha'
+                    if debug:
+                        attempt_traces.append(trace)
+                    if session_id:
+                        await self._discard_session(session_id)
+                        session_id = ''
+                    if attempt < max_attempts:
+                        await asyncio.sleep(max(retry_delay_ms, 0) / 1000)
+                    continue
+            else:
+                trace['sessionIdMasked'] = self._mask_session_id(session_id)
 
             try:
                 captcha_png = base64.b64decode(captcha_b64)
@@ -196,6 +204,7 @@ class VerifyFullAutoUseCase:
                     attempt_traces.append(trace)
                 if session_id:
                     await self._discard_session(session_id)
+                    session_id = ''
                 if attempt < max_attempts:
                     await asyncio.sleep(max(retry_delay_ms, 0) / 1000)
                 continue
@@ -215,6 +224,7 @@ class VerifyFullAutoUseCase:
                     attempt_traces.append(trace)
                 if session_id:
                     await self._discard_session(session_id)
+                    session_id = ''
                 if attempt < max_attempts:
                     await asyncio.sleep(max(retry_delay_ms, 0) / 1000)
                 continue
@@ -235,10 +245,36 @@ class VerifyFullAutoUseCase:
                     trace['error'] = 'captcha_invalid'
                     if debug:
                         attempt_traces.append(trace)
+                    # Refrescar el captcha de la misma sesión (sin crear página nueva)
+                    refresh_start = time.perf_counter()
+                    try:
+                        new_captcha_b64 = await self._verify_vehicle_uc.captcha_b64_from_session(session_id)
+                        if new_captcha_b64:
+                            captcha_b64 = new_captcha_b64
+                            last_captcha_b64 = new_captcha_b64
+                            logger.debug('Attempt %d: captcha refreshed for session %s', attempt, self._mask_session_id(session_id))
+                        else:
+                            logger.warning('Attempt %d: refresh captcha returned empty', attempt)
+                    except Exception as exc:
+                        logger.warning('Attempt %d: refresh captcha failed: %s', attempt, exc)
+                        new_captcha_b64 = ''
+                    if debug:
+                        trace['refreshCaptchaMs'] = round((time.perf_counter() - refresh_start) * 1000, 2)
+                    if not new_captcha_b64:
+                        # No se pudo obtener captcha fresco → descartar sesión y continuar con nueva
+                        if session_id:
+                            await self._discard_session(session_id)
+                            session_id = ''
+                        if attempt < max_attempts:
+                            await asyncio.sleep(max(retry_delay_ms, 0) / 1000)
+                        continue
                     if attempt < max_attempts:
                         await asyncio.sleep(max(retry_delay_ms, 0) / 1000)
                     continue
 
+                if session_id:
+                    await self._discard_session(session_id)
+                    session_id = ''
                 if debug:
                     attempt_traces.append(trace)
                 return (
@@ -259,6 +295,9 @@ class VerifyFullAutoUseCase:
                     422,
                 )
 
+            if session_id:
+                await self._discard_session(session_id)
+                session_id = ''
             if debug:
                 trace['result'] = 'success'
                 attempt_traces.append(trace)
@@ -279,6 +318,10 @@ class VerifyFullAutoUseCase:
                 },
                 200,
             )
+
+        if session_id:
+            await self._discard_session(session_id)
+            session_id = ''
 
         logger.warning("Verify exhausted retries: plate=%s, attempts=%d", plate, max_attempts)
 

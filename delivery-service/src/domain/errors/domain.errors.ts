@@ -62,3 +62,41 @@ export class RuntNeedsManualLicenseDataError extends DomainError {
     this.name = 'RuntNeedsManualLicenseDataError';
   }
 }
+
+export class LicenseAlreadyExistsError extends DomainError {
+  constructor(profileId: string) {
+    super(
+      `License already exists for profile: ${profileId}`,
+      'LICENSE_ALREADY_EXISTS',
+    );
+    this.name = 'LicenseAlreadyExistsError';
+  }
+}
+
+export class LicenseNotFoundError extends DomainError {
+  constructor(profileId: string) {
+    super(`License not found for profile: ${profileId}`, 'LICENSE_NOT_FOUND');
+    this.name = 'LicenseNotFoundError';
+  }
+}
+
+export class LicenseVerificationError extends DomainError {
+  constructor(message: string, code: string = 'LICENSE_VERIFICATION_ERROR') {
+    super(message, code);
+    this.name = 'LicenseVerificationError';
+  }
+}
+
+export class LicenseNeedsManualDataError extends DomainError {
+  constructor(message: string = 'Se requieren datos manuales de documento') {
+    super(message, 'LICENSE_NEEDS_MANUAL_DATA');
+    this.name = 'LicenseNeedsManualDataError';
+  }
+}
+
+export class LicenseCaptchaResolutionError extends DomainError {
+  constructor(message: string = 'No se pudo resolver el CAPTCHA de licencia') {
+    super(message, 'LICENSE_CAPTCHA_RESOLUTION_ERROR');
+    this.name = 'LicenseCaptchaResolutionError';
+  }
+}

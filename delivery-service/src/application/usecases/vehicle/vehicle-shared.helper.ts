@@ -35,6 +35,8 @@ export interface SaveVehicleInput {
   authorization?: string;
   identityPort?: DeliveryIdentityPort;
   userId?: string;
+  onboardingStatus?: OnboardingStatus;
+  isActiveOverride?: boolean;
 }
 
 export interface SaveVehicleResult {
@@ -97,12 +99,41 @@ export class VehicleSharedHelper {
     );
   }
 
-  static findLatestSoat(history: any[]): any {
-    return VehicleSharedHelper.getLatestFromArray(history, 'endDate');
+  static findLatestSoat(history: any[]): VehicleSoat | null {
+    const latest = VehicleSharedHelper.getLatestFromArray(history, 'endDate');
+    if (!latest) return null;
+    return VehicleSoat.create(
+      latest.id || `soat-${Date.now()}`,
+      latest.vehicleId || '',
+      latest.policyNumber,
+      latest.insurer,
+      latest.status,
+      latest.issuanceStatus,
+      latest.origin,
+      latest.tariffType,
+      latest.issuedAt ? new Date(latest.issuedAt) : undefined,
+      latest.startDate ? new Date(latest.startDate) : undefined,
+      latest.endDate ? new Date(latest.endDate) : undefined,
+    );
   }
 
-  static findLatestTechno(history: any[]): any {
-    return VehicleSharedHelper.getLatestFromArray(history, 'expiresAt');
+  static findLatestTechno(history: any[]): VehicleTechno | null {
+    const latest = VehicleSharedHelper.getLatestFromArray(history, 'expiresAt');
+    if (!latest) return null;
+    return VehicleTechno.create(
+      latest.id || `techno-${Date.now()}`,
+      latest.vehicleId || '',
+      latest.certificateNumber,
+      latest.reviewType,
+      latest.cdaName,
+      latest.status,
+      latest.isCurrent,
+      latest.issuedAt ? new Date(latest.issuedAt) : undefined,
+      latest.expiresAt ? new Date(latest.expiresAt) : undefined,
+      latest.plate,
+      latest.consistency,
+      latest.certificateUrl,
+    );
   }
 
   static async saveVehicleWithHistory(
@@ -201,8 +232,8 @@ export class VehicleSharedHelper {
     if (input.authorization && input.identityPort && input.userId) {
       const identityResult = await input.identityPort.updateUserStatus({
         userId: input.userId,
-        onboardingStatus: OnboardingStatus.COMPLETED,
-        isActive: canWork,
+        onboardingStatus: input.onboardingStatus || OnboardingStatus.COMPLETED,
+        isActive: input.isActiveOverride ?? canWork,
         authorization: input.authorization,
       });
       accessToken = identityResult.access_token;

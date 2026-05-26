@@ -153,4 +153,82 @@ export class DeliveryProxyController {
     });
     return result.data;
   }
+
+  // ───── License ─────
+
+  @Post('license/verify')
+  @UseInterceptors(FileInterceptor('image'))
+  async verifyLicense(
+    @UploadedFile() file: any,
+    @Body() body: any,
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const hasManualData = !!(body.documentType && body.documentNumber);
+    const hasBase64 = !!(body.imageBase64 && body.imageBase64.length > 0);
+    if (!file && !hasManualData && !hasBase64) {
+      throw new BadRequestException(
+        'Imagen o datos (documentType+documentNumber) requeridos',
+      );
+    }
+
+    const formData = new FormData();
+    if (file) {
+      formData.append(
+        'image',
+        new Blob([file.buffer], { type: file.mimetype }),
+        file.originalname,
+      );
+    }
+    if (body.imageBase64) formData.append('imageBase64', body.imageBase64);
+    if (body.documentType) formData.append('documentType', body.documentType);
+    if (body.documentNumber)
+      formData.append('documentNumber', body.documentNumber);
+
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'POST',
+      service: 'DELIVERY',
+      path: '/license/verify',
+      body: formData,
+      isMultipart: true,
+      timeout: 180000,
+    });
+    return result.data;
+  }
+
+  @Post('license/captcha')
+  async resolveLicenseCaptcha(
+    @Body() body: any,
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'POST',
+      service: 'DELIVERY',
+      path: '/license/resolve-captcha',
+      body,
+      timeout: 120000,
+    });
+    return result.data;
+  }
+
+  @Get('license')
+  async getLicense(@Req() req: Request, @CurrentUser() user: any) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'GET',
+      service: 'DELIVERY',
+      path: '/license',
+    });
+    return result.data;
+  }
+
+  @Delete('license')
+  async deleteLicense(@Req() req: Request, @CurrentUser() user: any) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'DELETE',
+      service: 'DELIVERY',
+      path: '/license',
+    });
+    return result.data;
+  }
 }

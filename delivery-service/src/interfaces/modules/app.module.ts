@@ -16,6 +16,7 @@ import {
 
 import {
   DeliveryProfileOrmEntity,
+  DriverLicenseOrmEntity,
   VehicleOrmEntity,
   VehicleSoatOrmEntity,
   VehicleTechnoOrmEntity,
@@ -23,20 +24,24 @@ import {
 
 import {
   TypeOrmDeliveryProfileRepository,
+  TypeOrmDriverLicenseRepository,
   TypeOrmVehicleRepository,
 } from '../../infrastructure/persistence/typeorm/repositories';
 
 import {
   DELIVERY_PROFILE_REPOSITORY,
+  DRIVER_LICENSE_REPOSITORY,
   VEHICLE_REPOSITORY,
 } from '../../domain/repositories';
 
 import {
   RUNT_VERIFICATION_PORT,
+  LICENSE_VERIFICATION_PORT,
   DELIVERY_IDENTITY_PORT,
 } from '../../application/ports';
 
 import { RuntVerificationAdapter } from '../../infrastructure/http/runt-verification.adapter';
+import { RuntLicenseVerificationAdapter } from '../../infrastructure/http/runt-license-verification.adapter';
 
 import { IdentityServiceClient } from '../../infrastructure/http/identity-service.client';
 
@@ -52,9 +57,16 @@ import {
   ResolveCaptchaUseCase,
   DeleteVehicleUseCase,
 } from '../../application/usecases/vehicle';
+import {
+  VerifyLicenseUseCase,
+  ResolveLicenseCaptchaUseCase,
+  GetLicenseUseCase,
+  DeleteLicenseUseCase,
+} from '../../application/usecases/license';
 
 import {
   DeliveryProfileController,
+  LicenseController,
   VehicleController,
 } from '../http/controllers';
 
@@ -62,6 +74,7 @@ import { ServiceSecretGuard, JwtAuthGuard } from '../http/guards';
 import { LoggingInterceptor } from '../http/interceptors/logging.interceptor';
 import { JwtStrategy } from '../http/strategies';
 import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
+import { OnboardingCalculator } from '../../application/services/onboarding-calculator.service';
 
 @Module({
   imports: [
@@ -96,6 +109,7 @@ import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
         database: config.get<string>(DATABASE_NAME),
         entities: [
           DeliveryProfileOrmEntity,
+          DriverLicenseOrmEntity,
           VehicleOrmEntity,
           VehicleSoatOrmEntity,
           VehicleTechnoOrmEntity,
@@ -106,16 +120,21 @@ import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
     }),
     TypeOrmModule.forFeature([
       DeliveryProfileOrmEntity,
+      DriverLicenseOrmEntity,
       VehicleOrmEntity,
       VehicleSoatOrmEntity,
       VehicleTechnoOrmEntity,
     ]),
   ],
-  controllers: [DeliveryProfileController, VehicleController],
+  controllers: [DeliveryProfileController, LicenseController, VehicleController],
   providers: [
     {
       provide: DELIVERY_PROFILE_REPOSITORY,
       useClass: TypeOrmDeliveryProfileRepository,
+    },
+    {
+      provide: DRIVER_LICENSE_REPOSITORY,
+      useClass: TypeOrmDriverLicenseRepository,
     },
     {
       provide: VEHICLE_REPOSITORY,
@@ -124,6 +143,10 @@ import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
     {
       provide: RUNT_VERIFICATION_PORT,
       useClass: RuntVerificationAdapter,
+    },
+    {
+      provide: LICENSE_VERIFICATION_PORT,
+      useClass: RuntLicenseVerificationAdapter,
     },
     {
       provide: DELIVERY_IDENTITY_PORT,
@@ -136,6 +159,11 @@ import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
     GetVehicleUseCase,
     ResolveCaptchaUseCase,
     DeleteVehicleUseCase,
+    VerifyLicenseUseCase,
+    ResolveLicenseCaptchaUseCase,
+    GetLicenseUseCase,
+    DeleteLicenseUseCase,
+    OnboardingCalculator,
     JwtStrategy,
     {
       provide: APP_GUARD,

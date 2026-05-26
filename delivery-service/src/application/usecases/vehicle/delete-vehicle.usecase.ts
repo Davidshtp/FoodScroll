@@ -9,16 +9,20 @@ import {
   VEHICLE_REPOSITORY,
 } from '../../../domain/repositories';
 import {
+  DRIVER_LICENSE_REPOSITORY,
+  DriverLicenseRepository,
+} from '../../../domain/repositories/driver-license.repository';
+import {
   DELIVERY_PROFILE_REPOSITORY,
   DeliveryProfileRepository,
 } from '../../../domain/repositories/delivery-profile.repository';
 import { GetDeliveryProfileUseCase } from '../delivery-profile';
 import {
-  OnboardingStatus,
   DELIVERY_IDENTITY_PORT,
   DeliveryIdentityPort,
 } from '../../ports/delivery-identity.port';
 import { VehicleType } from '../../../domain/enums/vehicle-type.enum';
+import { OnboardingCalculator } from '../../services/onboarding-calculator.service';
 
 export interface DeleteVehicleOutput {
   message: string;
@@ -30,11 +34,14 @@ export class DeleteVehicleUseCase {
   constructor(
     @Inject(VEHICLE_REPOSITORY)
     private readonly vehicleRepo: VehicleRepository,
+    @Inject(DRIVER_LICENSE_REPOSITORY)
+    private readonly licenseRepo: DriverLicenseRepository,
     @Inject(DELIVERY_PROFILE_REPOSITORY)
     private readonly profileRepo: DeliveryProfileRepository,
     @Inject(DELIVERY_IDENTITY_PORT)
     private readonly identityPort: DeliveryIdentityPort,
     private readonly getProfileUseCase: GetDeliveryProfileUseCase,
+    private readonly onboardingCalculator: OnboardingCalculator,
   ) {}
 
   async execute(
@@ -64,12 +71,22 @@ export class DeleteVehicleUseCase {
 
     await this.profileRepo.updateVehicleType(profile.id, null);
 
+    const license = await this.licenseRepo.findByProfileId(profile.id);
+    const onboarding = this.onboardingCalculator.calculate({
+      vehicleType: profile.vehicleType,
+      hasActiveVehicle: false,
+      hasActiveLicense: !!license,
+      soatVigente: false,
+      rtmVigente: false,
+      licenseActiva: license?.isActive ?? false,
+    });
+
     let accessToken = '';
     if (authorization) {
       const result = await this.identityPort.updateUserStatus({
         userId,
-        onboardingStatus: OnboardingStatus.REQUIRED_VEHICLE,
-        isActive: false,
+        onboardingStatus: onboarding.onboardingStatus,
+        isActive: onboarding.isActive,
         authorization,
       });
       accessToken = result.access_token;

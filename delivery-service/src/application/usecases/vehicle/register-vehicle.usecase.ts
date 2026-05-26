@@ -6,6 +6,10 @@ import {
   VEHICLE_REPOSITORY,
 } from '../../../domain/repositories';
 import {
+  DRIVER_LICENSE_REPOSITORY,
+  DriverLicenseRepository,
+} from '../../../domain/repositories/driver-license.repository';
+import {
   RuntVerificationPort,
   RUNT_VERIFICATION_PORT,
 } from '../../../application/ports/runt-verification.port';
@@ -21,6 +25,7 @@ import {
 } from '../../ports/delivery-identity.port';
 import { GetDeliveryProfileUseCase } from '../delivery-profile';
 import { VehicleSharedHelper } from './vehicle-shared.helper';
+import { OnboardingCalculator } from '../../services/onboarding-calculator.service';
 
 export interface RegisterVehicleInput {
   userId: string;
@@ -47,11 +52,14 @@ export class RegisterVehicleUseCase {
   constructor(
     @Inject(VEHICLE_REPOSITORY)
     private readonly vehicleRepo: VehicleRepository,
+    @Inject(DRIVER_LICENSE_REPOSITORY)
+    private readonly licenseRepo: DriverLicenseRepository,
     @Inject(RUNT_VERIFICATION_PORT)
     private readonly runtPort: RuntVerificationPort,
     @Inject(DELIVERY_IDENTITY_PORT)
     private readonly identityPort: DeliveryIdentityPort,
     private readonly getProfileUseCase: GetDeliveryProfileUseCase,
+    private readonly onboardingCalculator: OnboardingCalculator,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -145,6 +153,22 @@ export class RegisterVehicleUseCase {
       verification.rtmHistory || [],
     );
 
+    const license = await this.licenseRepo.findByProfileId(profile.id);
+    const hasActiveLicense = !!license;
+    const licenseActiva = license?.isActive ?? false;
+
+    const soatVigente = latestSoat?.isVigente() ?? false;
+    const rtmVigente = latestTechno?.isVigente() ?? false;
+
+    const onboarding = this.onboardingCalculator.calculate({
+      vehicleType,
+      hasActiveVehicle: true,
+      hasActiveLicense,
+      soatVigente,
+      rtmVigente,
+      licenseActiva,
+    });
+
     return await this.dataSource.transaction(async (manager) => {
       const result = await VehicleSharedHelper.saveVehicleWithHistory(manager, {
         profileId: profile.id,
@@ -165,13 +189,20 @@ export class RegisterVehicleUseCase {
         authorization: input.authorization,
         identityPort: this.identityPort,
         userId: profile.userId,
+        onboardingStatus: onboarding.onboardingStatus,
+        isActiveOverride: onboarding.isActive,
       });
+
+      const reasons = [...result.reasons];
+      if (!licenseActiva) {
+        reasons.push('LICENCIA_NO_ACTIVA');
+      }
 
       return {
         vehicle: result.vehicle,
         soats: result.soats,
         technos: result.technos,
-        status: { canWork: result.canWork, reasons: result.reasons },
+        status: { canWork: onboarding.isActive, reasons },
         access_token: result.accessToken,
       };
     });

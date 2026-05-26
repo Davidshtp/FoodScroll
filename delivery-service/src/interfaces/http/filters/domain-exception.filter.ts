@@ -13,6 +13,11 @@ import {
   VehicleNotFoundError,
   DeliveryProfileAlreadyExistsError,
   CaptchaResolutionError,
+  LicenseCaptchaResolutionError,
+  LicenseNeedsManualDataError,
+  LicenseVerificationError,
+  LicenseAlreadyExistsError,
+  LicenseNotFoundError,
   RuntNeedsManualLicenseDataError,
   RuntVerificationError,
 } from '../../../domain/errors/domain.errors';
@@ -38,13 +43,23 @@ export class DomainExceptionFilter implements ExceptionFilter {
       }
     } else if (
       exception instanceof CaptchaResolutionError ||
-      exception instanceof RuntNeedsManualLicenseDataError
+      exception instanceof RuntNeedsManualLicenseDataError ||
+      exception instanceof LicenseCaptchaResolutionError ||
+      exception instanceof LicenseNeedsManualDataError
     ) {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       try {
         details = JSON.parse(exception.message);
       } catch {
         details = { rawMessage: exception.message };
+      }
+    } else if (
+      exception instanceof LicenseAlreadyExistsError ||
+      exception instanceof LicenseNotFoundError
+    ) {
+      status = HttpStatus.NOT_FOUND;
+      if (exception instanceof LicenseAlreadyExistsError) {
+        status = HttpStatus.CONFLICT;
       }
     } else if (exception instanceof RuntVerificationError) {
       if (exception.code === 'INVALID_INPUT') {
@@ -54,6 +69,20 @@ export class DomainExceptionFilter implements ExceptionFilter {
         exception.code === 'RUNT_ADAPTER_ERROR'
       ) {
         status = HttpStatus.BAD_GATEWAY;
+      } else {
+        status = HttpStatus.UNPROCESSABLE_ENTITY;
+      }
+      details = { code: exception.code };
+    } else if (exception instanceof LicenseVerificationError) {
+      if (exception.code === 'INVALID_INPUT') {
+        status = HttpStatus.BAD_REQUEST;
+      } else if (
+        exception.code === 'RUNT_TIMEOUT' ||
+        exception.code === 'LICENSE_ADAPTER_ERROR'
+      ) {
+        status = HttpStatus.BAD_GATEWAY;
+      } else if (exception.code === 'LICENSE_NOT_FOUND') {
+        status = HttpStatus.NOT_FOUND;
       } else {
         status = HttpStatus.UNPROCESSABLE_ENTITY;
       }

@@ -4,4 +4,5 @@ export {
   RegisterVehicleManualDto,
   ResolveRuntCaptchaDto,
 } from './register-vehicle.dto';
+export { VerifyLicenseDto, ResolveLicenseCaptchaDto } from './verify-license.dto';
 export { UpdateDeliveryProfileDto } from './update-delivery-profile.dto';

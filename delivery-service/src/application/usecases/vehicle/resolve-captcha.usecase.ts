@@ -6,6 +6,10 @@ import {
   VEHICLE_REPOSITORY,
 } from '../../../domain/repositories';
 import {
+  DRIVER_LICENSE_REPOSITORY,
+  DriverLicenseRepository,
+} from '../../../domain/repositories/driver-license.repository';
+import {
   RuntVerificationPort,
   RUNT_VERIFICATION_PORT,
 } from '../../../application/ports/runt-verification.port';
@@ -19,6 +23,7 @@ import {
   DeliveryIdentityPort,
 } from '../../ports/delivery-identity.port';
 import { VehicleSharedHelper } from './vehicle-shared.helper';
+import { OnboardingCalculator } from '../../services/onboarding-calculator.service';
 
 export interface ResolveCaptchaInput {
   userId: string;
@@ -46,11 +51,14 @@ export class ResolveCaptchaUseCase {
   constructor(
     @Inject(VEHICLE_REPOSITORY)
     private readonly vehicleRepo: VehicleRepository,
+    @Inject(DRIVER_LICENSE_REPOSITORY)
+    private readonly licenseRepo: DriverLicenseRepository,
     @Inject(RUNT_VERIFICATION_PORT)
     private readonly runtPort: RuntVerificationPort,
     @Inject(DELIVERY_IDENTITY_PORT)
     private readonly identityPort: DeliveryIdentityPort,
     private readonly getProfileUseCase: GetDeliveryProfileUseCase,
+    private readonly onboardingCalculator: OnboardingCalculator,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -95,6 +103,22 @@ export class ResolveCaptchaUseCase {
       result.rtmHistory || [],
     );
 
+    const license = await this.licenseRepo.findByProfileId(profile.id);
+    const hasActiveLicense = !!license;
+    const licenseActiva = license?.isActive ?? false;
+
+    const soatVigente = latestSoat?.isVigente() ?? false;
+    const rtmVigente = latestTechno?.isVigente() ?? false;
+
+    const onboarding = this.onboardingCalculator.calculate({
+      vehicleType,
+      hasActiveVehicle: true,
+      hasActiveLicense,
+      soatVigente,
+      rtmVigente,
+      licenseActiva,
+    });
+
     return await this.dataSource.transaction(async (manager) => {
       const saveResult = await VehicleSharedHelper.saveVehicleWithHistory(
         manager,
@@ -117,14 +141,21 @@ export class ResolveCaptchaUseCase {
           authorization: input.authorization,
           identityPort: this.identityPort,
           userId: profile.userId,
+          onboardingStatus: onboarding.onboardingStatus,
+          isActiveOverride: onboarding.isActive,
         },
       );
+
+      const reasons = [...saveResult.reasons];
+      if (!licenseActiva) {
+        reasons.push('LICENCIA_NO_ACTIVA');
+      }
 
       return {
         vehicle: saveResult.vehicle,
         soats: saveResult.soats,
         technos: saveResult.technos,
-        status: { canWork: saveResult.canWork, reasons: saveResult.reasons },
+        status: { canWork: onboarding.isActive, reasons },
         access_token: saveResult.accessToken,
       };
     });

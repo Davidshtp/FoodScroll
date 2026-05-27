@@ -79,10 +79,12 @@ export class ResolveLicenseCaptchaUseCase {
 
     const runtAccessToken =
       input.authorization?.replace(/^Bearer\s+/i, '').trim() || '';
+    const verifiedDocumentNumber =
+      input.documentNumber || profile.documentNumber;
     const result = await this.licensePort.verifyManual({
       sessionId: input.sessionId,
       documentType: input.documentType || 'CC',
-      documentNumber: input.documentNumber || profile.documentNumber,
+      documentNumber: verifiedDocumentNumber,
       captchaText: input.captchaText,
       accessToken: runtAccessToken,
     });
@@ -100,14 +102,14 @@ export class ResolveLicenseCaptchaUseCase {
 
     const existingByDoc =
       await this.licenseRepo.findByDocumentNumberIncludingDeleted(
-        profile.documentNumber,
+        verifiedDocumentNumber,
       );
     if (existingByDoc?.deletedAt) {
-      await this.licenseRepo.restore(profile.documentNumber);
+      await this.licenseRepo.restore(verifiedDocumentNumber);
     }
 
     const license = DriverLicense.create(
-      profile.documentNumber,
+      verifiedDocumentNumber,
       profile.id,
       info.licenseNumber,
       info.issuingOffice,

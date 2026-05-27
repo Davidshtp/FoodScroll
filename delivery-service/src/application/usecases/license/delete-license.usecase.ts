@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { Vehicle, VehicleSoat, VehicleTechno } from '../../../domain';
 import {
   DRIVER_LICENSE_REPOSITORY,
   DriverLicenseRepository,
@@ -14,6 +15,7 @@ import {
 } from '../../ports/delivery-identity.port';
 import { GetDeliveryProfileUseCase } from '../delivery-profile';
 import { OnboardingCalculator } from '../../services/onboarding-calculator.service';
+import { VehicleSharedHelper } from '../vehicle/vehicle-shared.helper';
 
 export interface DeleteLicenseInput {
   userId: string;
@@ -22,6 +24,10 @@ export interface DeleteLicenseInput {
 
 export interface DeleteLicenseOutput {
   message: string;
+  status: {
+    canWork: boolean;
+    reasons: string[];
+  };
   access_token: string;
 }
 
@@ -49,14 +55,22 @@ export class DeleteLicenseUseCase {
     await this.licenseRepo.softDelete(license.documentNumber);
 
     const vehicles = await this.vehicleRepo.findAllByProfileId(profile.id);
-    const hasActiveVehicle = vehicles.length > 0;
+    const activeVehicle = vehicles.length > 0 ? vehicles[0] : null;
+
+    let soatVigente = false;
+    let rtmVigente = false;
+    if (activeVehicle) {
+      const status = await this.getVehicleStatus(activeVehicle);
+      soatVigente = status.soatVigente;
+      rtmVigente = status.rtmVigente;
+    }
 
     const onboarding = this.onboardingCalculator.calculate({
       vehicleType: profile.vehicleType,
-      hasActiveVehicle,
+      hasActiveVehicle: !!activeVehicle,
       hasActiveLicense: false,
-      soatVigente: false,
-      rtmVigente: false,
+      soatVigente,
+      rtmVigente,
       licenseActiva: false,
     });
 
@@ -71,6 +85,38 @@ export class DeleteLicenseUseCase {
       accessToken = result.access_token;
     }
 
-    return { message: 'Licencia eliminada correctamente', access_token: accessToken };
+    const reasons: string[] = [];
+    if (activeVehicle) {
+      if (!soatVigente) reasons.push('SOAT_NO_VIGENTE');
+      if (!rtmVigente) reasons.push('RTM_NO_VIGENTE');
+    }
+    reasons.push('LICENCIA_NO_ACTIVA');
+
+    return {
+      message: 'Licencia eliminada correctamente',
+      status: { canWork: onboarding.isActive, reasons },
+      access_token: accessToken,
+    };
+  }
+
+  private async getVehicleStatus(vehicle: Vehicle): Promise<{
+    soatVigente: boolean;
+    rtmVigente: boolean;
+  }> {
+    const soats: VehicleSoat[] =
+      await this.vehicleRepo.findSoatsByVehicleId(vehicle.id);
+    const technos: VehicleTechno[] =
+      await this.vehicleRepo.findTechnosByVehicleId(vehicle.id);
+
+    const latestSoat = VehicleSharedHelper.getLatestFromArray(soats, 'endDate');
+    const latestTechno = VehicleSharedHelper.getLatestFromArray(
+      technos,
+      'expiresAt',
+    );
+
+    const soatVigente = latestSoat ? latestSoat.isVigente() : false;
+    const rtmVigente = latestTechno ? latestTechno.isVigente() : false;
+
+    return { soatVigente, rtmVigente };
   }
 }

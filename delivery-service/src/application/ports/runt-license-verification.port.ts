@@ -24,6 +24,7 @@ export interface LicenseVerifyFullAutoResult {
   error?: boolean;
   code?: string;
   message?: string;
+  documentNumber?: string;
   licenseNumber?: string;
   issuingOffice?: string;
   issueDate?: string;

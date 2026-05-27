@@ -128,17 +128,19 @@ export class VerifyLicenseUseCase {
     const issueDate = result.issueDate ? new Date(result.issueDate) : null;
     const isActive =
       result.active ?? (result.status || '').toUpperCase() === 'ACTIVA';
+    const verifiedDocumentNumber =
+      result.documentNumber || input.documentNumber || profile.documentNumber;
 
     const existingByDoc =
       await this.licenseRepo.findByDocumentNumberIncludingDeleted(
-        profile.documentNumber,
+        verifiedDocumentNumber,
       );
     if (existingByDoc?.deletedAt) {
-      await this.licenseRepo.restore(profile.documentNumber);
+      await this.licenseRepo.restore(verifiedDocumentNumber);
     }
 
     const license = DriverLicense.create(
-      profile.documentNumber,
+      verifiedDocumentNumber,
       profile.id,
       result.licenseNumber,
       result.issuingOffice,

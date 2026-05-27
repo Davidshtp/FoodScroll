@@ -32,8 +32,8 @@ Esto abrirá **Windows Terminal** con **7 pestañas**, una para cada microservic
 | 3 | **Delivery Service** | 3002 | `npm run start:dev` |
 | 4 | **Identity Service** | 3003 | `npm run start:dev` |
 | 5 | **Location Service** | 3004 | `npm run start:dev` |
-| 6 | **Python Scraper** | - | `python main.py` |
-| 7 | **Python License Scraper** | - | `python main.py` |
+| 6 | **Python Scraper** | 5591 | `python main.py` |
+| 7 | **Python License Scraper** | 5592 | `python main.py` |
 
 ---
 

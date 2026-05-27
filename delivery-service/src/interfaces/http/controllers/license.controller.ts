@@ -136,6 +136,7 @@ export class LicenseController {
     });
     return {
       message: result.message,
+      status: result.status,
       access_token: result.access_token,
     };
   }

@@ -17,6 +17,7 @@ import { HealthModule } from './modules/health/health.module';
 import { LocationProxyModule } from './modules/location-proxy/location-proxy.module';
 import { CustomerProxyModule } from './modules/customer-proxy/customer-proxy.module';
 import { DeliveryProxyModule } from './modules/delivery-proxy/delivery-proxy.module';
+import { RestaurantProxyModule } from './modules/restaurant-proxy/restaurant-proxy.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { DeliveryProxyModule } from './modules/delivery-proxy/delivery-proxy.mod
     LocationProxyModule,
     CustomerProxyModule,
     DeliveryProxyModule,
+    RestaurantProxyModule,
     HealthModule,
   ],
   providers: [

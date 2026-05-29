@@ -2,7 +2,7 @@ import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig, Method } from 'axios';
 import { ServiceAuthService } from '../security/service-auth.service';
-import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, HTTP_RETRIES, HTTP_TIMEOUT, IDENTITY_SERVICE_URL, CUSTOMER_SERVICE_URL, LOCATION_SERVICE_URL, DELIVERY_SERVICE_URL, } from '../../config/constants';
+import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, HTTP_RETRIES, HTTP_TIMEOUT, IDENTITY_SERVICE_URL, CUSTOMER_SERVICE_URL, LOCATION_SERVICE_URL, DELIVERY_SERVICE_URL, RESTAURANT_SERVICE_URL, } from '../../config/constants';
 
 // ───── Interfaces ─────
 export interface ServiceResponse<T = any> {
@@ -53,6 +53,9 @@ export class HttpClientService {
       DELIVERY:
         this.configService.get<string>(DELIVERY_SERVICE_URL) ||
         'http://127.0.0.1:5563',
+      RESTAURANT:
+        this.configService.get<string>(RESTAURANT_SERVICE_URL) ||
+        'http://127.0.0.1:5564',
     };
   }
 

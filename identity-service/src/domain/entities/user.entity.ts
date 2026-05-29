@@ -58,10 +58,10 @@ export class User {
     passwordHash: string;
     role: Role;
   }): User {
-    const isDelivery = props.role === Role.DELIVERY;
+    const isCustomer = props.role === Role.CUSTOMER;
     return new User({
       ...props,
-      isActive: !isDelivery,
+      isActive: isCustomer,
       isVerified: false,
       hashedRefreshToken: null,
       tokenVersion: 0,

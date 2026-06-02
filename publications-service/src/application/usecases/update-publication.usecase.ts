@@ -3,7 +3,6 @@ import { PublicationRepositoryPort } from '../ports/publication.repository.port'
 import { PUBLICATION_REPOSITORY } from '../../domain/repositories';
 import { PublicationNotFoundError } from '../../domain/errors/domain.errors';
 import { Publication } from '../../domain/entities/publication.entity';
-import { PublicationType } from '../../domain/value-objects/publication-type.value-object';
 
 @Injectable()
 export class UpdatePublicationUseCase {
@@ -14,6 +13,7 @@ export class UpdatePublicationUseCase {
     title: string | undefined,
     description: string | undefined,
     type: string | undefined,
+    price: number | undefined,
     imageUrls: string[] | undefined,
   ): Promise<Publication> {
     const publication = await this.publicationRepository.findById(id);
@@ -21,15 +21,11 @@ export class UpdatePublicationUseCase {
       throw new PublicationNotFoundError(id);
     }
 
-    let publicationType: PublicationType | undefined;
-    if (type !== undefined) {
-      publicationType = PublicationType.fromString(type);
-    }
-
     const updatedPublication = publication.update(
       title ?? publication.getTitle(),
       description ?? publication.getDescription(),
-      publicationType ?? publication.getType(),
+      type ?? publication.getType(),
+      price,
       imageUrls,
     );
 

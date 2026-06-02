@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, IsNumber, Min } from 'class-validator';
 
 export class CreatePublicationDto {
 
@@ -15,5 +15,9 @@ export class CreatePublicationDto {
   @IsString()
   @IsNotEmpty()
   type: string;
+
+  @IsNumber()
+  @Min(0)
+  price: number;
 
 }

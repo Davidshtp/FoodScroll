@@ -4,7 +4,6 @@ import { Model } from 'mongoose';
 import { PublicationRepositoryPort } from '../../../application/ports/publication.repository.port';
 import { Publication } from '../../../domain/entities/publication.entity';
 import { PublicationDocument } from '../../../infrastructure/database/publication.schema';
-import { PublicationType } from '../../../domain/value-objects/publication-type.value-object';
 import { PublicationNotFoundError } from '../../../domain/errors/domain.errors';
 
 @Injectable()
@@ -25,7 +24,8 @@ export class PublicationMongoRepository implements PublicationRepositoryPort {
        document.restaurantId,
        document.title,
        document.description,
-       PublicationType.fromString(String(document.type)),
+       String(document.type),
+       (document as any).price ?? null,
        imageUrls,
        document.publishedAt,
        document.deletedAt ? new Date(document.deletedAt) : null,
@@ -38,7 +38,8 @@ export class PublicationMongoRepository implements PublicationRepositoryPort {
       restaurantId: publication.getRestaurantId(),
       title: publication.getTitle(),
       description: publication.getDescription(),
-      type: publication.getType().getValue(),
+      type: publication.getType(),
+      price: publication.getPrice(),
       imageUrls: publication.getImageUrls(),
       publishedAt: publication.getPublishedAt(),
       deletedAt: publication.getDeletedAt(),

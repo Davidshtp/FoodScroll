@@ -152,9 +152,10 @@ export class RestaurantProxyController {
         });
       });
 
-      if (body.title) formData.append('title', body.title);
-      if (body.description) formData.append('description', body.description);
-      if (body.type) formData.append('type', body.type);
+        if (body.title) formData.append('title', body.title);
+        if (body.description) formData.append('description', body.description);
+        if (body.type) formData.append('type', body.type);
+        if (body.price !== undefined && body.price !== null) formData.append('price', body.price);
 
       const result = await this.proxy.forwardAuthenticated(req, user, {
         method: 'POST',
@@ -222,10 +223,11 @@ export class RestaurantProxyController {
          });
        }
 
-       if (body.title) formData.append('title', body.title);
-       if (body.description) formData.append('description', body.description);
-       if (body.type) formData.append('type', body.type);
-        if (hasUrlsToDelete) {
+        if (body.title) formData.append('title', body.title);
+        if (body.description) formData.append('description', body.description);
+        if (body.type) formData.append('type', body.type);
+        if (body.price !== undefined && body.price !== null) formData.append('price', body.price);
+         if (hasUrlsToDelete) {
           formData.append(
             'imageUrlsToDelete',
             typeof body.imageUrlsToDelete === 'string'

@@ -1,5 +1,4 @@
 import { v4 as uuidv4 } from 'uuid';
-import { PublicationType } from '../value-objects/publication-type.value-object';
 import { InvalidPublicationDataError } from '../errors/domain.errors';
 
 export interface PublicationProps {
@@ -7,7 +6,8 @@ export interface PublicationProps {
   restaurantId: string;
   title: string;
   description: string;
-  type: PublicationType;
+  type: string;
+  price: number;
   imageUrls: string[];
   publishedAt: Date;
   deletedAt: Date | null;
@@ -18,7 +18,8 @@ export class Publication {
   private restaurantId: string;
   private title: string;
   private description: string;
-  private type: PublicationType;
+  private type: string;
+  private price: number;
   private imageUrls: string[];
   private publishedAt: Date;
   private deletedAt: Date | null;
@@ -29,6 +30,7 @@ export class Publication {
     this.title = props.title;
     this.description = props.description;
     this.type = props.type;
+    this.price = props.price;
     this.imageUrls = props.imageUrls;
     this.publishedAt = props.publishedAt;
     this.deletedAt = props.deletedAt;
@@ -38,10 +40,10 @@ export class Publication {
     restaurantId: string,
     title: string,
     description: string,
-    type: PublicationType,
+    type: string,
+    price: number,
     imageUrls: string[],
   ): Publication {
-    // Validate inputs
     if (!restaurantId || restaurantId.trim() === '') {
       throw new InvalidPublicationDataError('Restaurant ID is required');
     }
@@ -62,6 +64,14 @@ export class Publication {
       throw new InvalidPublicationDataError('Description must be 2000 characters or less');
     }
 
+    if (!type || type.trim() === '') {
+      throw new InvalidPublicationDataError('Type is required');
+    }
+
+    if (price === undefined || price === null || price < 0) {
+      throw new InvalidPublicationDataError('Price is required and must be >= 0');
+    }
+
     Publication.validateImages(imageUrls);
 
     return new Publication({
@@ -69,7 +79,8 @@ export class Publication {
       restaurantId,
       title: title.trim(),
       description: description.trim(),
-      type,
+      type: type.trim(),
+      price,
       imageUrls,
       publishedAt: new Date(),
       deletedAt: null,
@@ -81,12 +92,13 @@ export class Publication {
     restaurantId: string,
     title: string,
     description: string,
-    type: PublicationType,
+    type: string,
+    price: number | null,
     imageUrls: string[],
     publishedAt: Date,
     deletedAt: Date | null = null,
   ): Publication {
-    return new Publication({ id, restaurantId, title, description, type, imageUrls, publishedAt, deletedAt });
+    return new Publication({ id, restaurantId, title, description, type, price: price ?? 0, imageUrls, publishedAt, deletedAt });
   }
 
   getId(): string {
@@ -105,8 +117,12 @@ export class Publication {
     return this.description;
   }
 
-  getType(): PublicationType {
+  getType(): string {
     return this.type;
+  }
+
+  getPrice(): number {
+    return this.price;
   }
 
   getImageUrls(): string[] {
@@ -128,7 +144,8 @@ export class Publication {
   update(
     title: string,
     description: string,
-    type: PublicationType,
+    type: string,
+    price: number | undefined,
     imageUrls: string[] | undefined,
   ): Publication {
     if (!title || title.trim() === '') {
@@ -153,6 +170,9 @@ export class Publication {
     this.title = title.trim();
     this.description = description.trim();
     this.type = type;
+    if (price !== undefined) {
+      this.price = price;
+    }
     this.imageUrls = nextImageUrls;
 
     return this;

@@ -1,21 +1,12 @@
 import { InvalidPublicationDataError } from '../errors/domain.errors';
 
 export class PublicationType {
-  private static readonly VALID_TYPES = ['OFFER', 'EVENT', 'NEWS', 'PROMOTION'];
-
   constructor(private readonly value: string) {
-    if (!value || typeof value !== 'string') {
+    if (!value || typeof value !== 'string' || value.trim() === '') {
       throw new InvalidPublicationDataError('Publication type must be a non-empty string');
     }
 
-    const upperValue = value.toUpperCase();
-    if (!PublicationType.VALID_TYPES.includes(upperValue)) {
-      throw new InvalidPublicationDataError(
-        `Invalid publication type. Valid types are: ${PublicationType.VALID_TYPES.join(', ')}`,
-      );
-    }
-
-    this.value = upperValue;
+    this.value = value.trim();
   }
 
   getValue(): string {

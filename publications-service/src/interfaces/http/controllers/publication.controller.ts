@@ -19,7 +19,6 @@ import { JwtAuthGuard, ServiceSecretGuard } from '../guards';
 import { CreatePublicationUseCase } from '../../../application/usecases/create-publication.usecase';
 import { GetPublicationUseCase } from '../../../application/usecases/get-publication.usecase';
 import { GetPublicationsByRestaurantUseCase } from '../../../application/usecases/get-publications-by-restaurant.usecase';
-import { PublicationType } from '../../../domain/value-objects/publication-type.value-object';
 import { UpdatePublicationUseCase } from '../../../application/usecases/update-publication.usecase';
 import { DeletePublicationUseCase } from '../../../application/usecases/delete-publication.usecase';
 import { CreatePublicationDto } from '../../../application/dtos/create-publication.dto';
@@ -66,13 +65,13 @@ export class PublicationController {
     const restaurantId = restaurantData.restaurant.id;
 
     const imageUrls = await this.cloudinaryService.uploadImages(files);
-    const publicationType = PublicationType.fromString(dto.type);
 
     return await this.createPublicationUseCase.execute(
       restaurantId,
       dto.title,
       dto.description,
-      publicationType.getValue(),
+      dto.type,
+      dto.price,
       imageUrls,
     );
   }
@@ -142,16 +141,12 @@ export class PublicationController {
 
     currentUrls = [...currentUrls, ...newUrls];
 
-    let publicationType: string | undefined;
-    if (dto.type !== undefined) {
-      publicationType = PublicationType.fromString(dto.type).getValue();
-    }
-
     return await this.updatePublicationUseCase.execute(
       id,
       dto.title,
       dto.description,
-      publicationType,
+      dto.type,
+      dto.price,
       currentUrls,
     );
   }

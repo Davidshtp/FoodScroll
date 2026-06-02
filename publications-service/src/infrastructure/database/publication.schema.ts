@@ -18,8 +18,11 @@ export class Publication {
   @Prop({ required: true })
   description: string;
 
-  @Prop({ required: true, enum: ['OFFER', 'EVENT', 'NEWS', 'PROMOTION'] })
+  @Prop({ required: true })
   type: string;
+
+  @Prop({ required: true })
+  price: number;
 
   @Prop({ type: [String], required: true })
   imageUrls: string[];

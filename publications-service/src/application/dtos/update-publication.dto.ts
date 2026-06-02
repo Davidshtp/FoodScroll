@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength, Allow } from 'class-validator';
+import { IsString, IsOptional, MaxLength, Allow, IsNumber, Min } from 'class-validator';
 
 export class UpdatePublicationDto {
   @IsString()
@@ -14,6 +14,11 @@ export class UpdatePublicationDto {
   @IsString()
   @IsOptional()
   type?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  price?: number;
 
   @Allow()
   @IsOptional()

@@ -2,7 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PublicationRepositoryPort } from '../ports/publication.repository.port';
 import { PUBLICATION_REPOSITORY } from '../../domain/repositories';
 import { Publication } from '../../domain/entities/publication.entity';
-import { PublicationType } from '../../domain/value-objects/publication-type.value-object';
 
 @Injectable()
 export class CreatePublicationUseCase {
@@ -13,15 +12,15 @@ export class CreatePublicationUseCase {
     title: string,
     description: string,
     type: string,
+    price: number,
     imageUrls: string[],
   ): Promise<Publication> {
-    const publicationType = PublicationType.fromString(type);
-
     const publication = Publication.create(
       restaurantId,
       title,
       description,
-      publicationType,
+      type,
+      price,
       imageUrls,
     );
 

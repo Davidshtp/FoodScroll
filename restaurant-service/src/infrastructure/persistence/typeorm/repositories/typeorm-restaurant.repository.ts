@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, Not } from 'typeorm';
 import { Restaurant } from '../../../../domain/entities/restaurant.entity';
 import { RestaurantAddress } from '../../../../domain/entities/restaurant-address.entity';
 import { RestaurantOpeningHours } from '../../../../domain/entities/restaurant-opening-hours.entity';
@@ -41,6 +41,21 @@ export class TypeOrmRestaurantRepository implements RestaurantRepository {
       where: { userId, deletedAt: IsNull() },
     });
     return orm ? RestaurantMapper.toDomain(orm) : null;
+  }
+
+  async findDeletedByUserId(userId: string): Promise<Restaurant | null> {
+    const orm = await this.restaurantRepo.findOne({
+      where: { userId, deletedAt: Not(IsNull()) },
+      withDeleted: true,
+    });
+    return orm ? RestaurantMapper.toDomain(orm) : null;
+  }
+
+  async restore(restaurant: Restaurant): Promise<Restaurant> {
+    const orm = RestaurantMapper.toOrm(restaurant);
+    orm.deletedAt = null;
+    const restored = await this.restaurantRepo.save(orm);
+    return RestaurantMapper.toDomain(restored);
   }
 
   async saveAddress(address: RestaurantAddress): Promise<RestaurantAddress> {

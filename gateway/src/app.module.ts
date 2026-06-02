@@ -18,6 +18,7 @@ import { LocationProxyModule } from './modules/location-proxy/location-proxy.mod
 import { CustomerProxyModule } from './modules/customer-proxy/customer-proxy.module';
 import { DeliveryProxyModule } from './modules/delivery-proxy/delivery-proxy.module';
 import { RestaurantProxyModule } from './modules/restaurant-proxy/restaurant-proxy.module';
+import { EngagementProxyModule } from './modules/engagement-proxy/engagement-proxy.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { RestaurantProxyModule } from './modules/restaurant-proxy/restaurant-pro
     CustomerProxyModule,
     DeliveryProxyModule,
     RestaurantProxyModule,
+    EngagementProxyModule,
     HealthModule,
   ],
   providers: [

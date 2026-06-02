@@ -1,6 +1,7 @@
-import { Controller, Patch, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, UseGuards, Req, Inject, NotFoundException } from '@nestjs/common';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { UpdateUserUseCase } from '../../../application/usecases/user';
+import { UserRepository, USER_REPOSITORY } from '../../../domain/repositories/user.repository';
 
 interface UpdateUserDto {
   isActive?: boolean;
@@ -21,10 +22,22 @@ interface RequestWithUser extends Request {
 }
 
 @Controller('users')
-@UseGuards(JwtAuthGuard)
 export class UserController {
-  constructor(private readonly updateUserUseCase: UpdateUserUseCase) {}
+  constructor(
+    private readonly updateUserUseCase: UpdateUserUseCase,
+    @Inject(USER_REPOSITORY) private readonly userRepo: UserRepository,
+  ) {}
 
+  @Get(':userId')
+  async getUserById(@Param('userId') userId: string) {
+    const user = await this.userRepo.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return { id: user.id, role: user.role };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Patch(':userId/onboarding')
   async updateUser(
     @Req() req: RequestWithUser,

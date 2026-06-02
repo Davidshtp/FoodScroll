@@ -80,6 +80,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
         );
         throw new UnauthorizedException('Token revoked or expired');
       }
+
+      request.user.isActive = response.data?.isActive ?? false;
     } catch (error: any) {
       if (error instanceof UnauthorizedException) {
         throw error;

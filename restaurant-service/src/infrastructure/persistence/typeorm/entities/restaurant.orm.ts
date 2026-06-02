@@ -16,7 +16,7 @@ export class RestaurantOrmEntity {
   @PrimaryColumn('uuid')
   id: string;
 
-  @Index({ unique: true })
+  @Index({ unique: true, where: 'deleted_at IS NULL' })
   @Column({ name: 'user_id' })
   userId: string;
 

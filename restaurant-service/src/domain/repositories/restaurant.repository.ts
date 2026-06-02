@@ -8,6 +8,8 @@ export interface RestaurantRepository {
   save(restaurant: Restaurant): Promise<Restaurant>;
   findById(id: string): Promise<Restaurant | null>;
   findByUserId(userId: string): Promise<Restaurant | null>;
+  findDeletedByUserId(userId: string): Promise<Restaurant | null>;
+  restore(restaurant: Restaurant): Promise<Restaurant>;
   deleteById(id: string): Promise<void>;
 
   saveAddress(address: RestaurantAddress): Promise<RestaurantAddress>;

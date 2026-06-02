@@ -2,7 +2,7 @@ import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig, Method } from 'axios';
 import { ServiceAuthService } from '../security/service-auth.service';
-import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, HTTP_RETRIES, HTTP_TIMEOUT, IDENTITY_SERVICE_URL, CUSTOMER_SERVICE_URL, LOCATION_SERVICE_URL, DELIVERY_SERVICE_URL, RESTAURANT_SERVICE_URL, } from '../../config/constants';
+import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, HTTP_RETRIES, HTTP_TIMEOUT, IDENTITY_SERVICE_URL, CUSTOMER_SERVICE_URL, LOCATION_SERVICE_URL, DELIVERY_SERVICE_URL, RESTAURANT_SERVICE_URL, PUBLICATIONS_SERVICE_URL, } from '../../config/constants';
 
 // ───── Interfaces ─────
 export interface ServiceResponse<T = any> {
@@ -40,23 +40,26 @@ export class HttpClientService {
     this.timeout = this.configService.get<number>(HTTP_TIMEOUT) || 5000;
     this.retries = this.configService.get<number>(HTTP_RETRIES) || 2;
 
-    this.serviceUrls = {
-      IDENTITY:
-        this.configService.get<string>(IDENTITY_SERVICE_URL) ||
-        'http://127.0.0.1:5560',
-      CUSTOMER:
-        this.configService.get<string>(CUSTOMER_SERVICE_URL) ||
-        'http://127.0.0.1:5561',
-      LOCATION:
-        this.configService.get<string>(LOCATION_SERVICE_URL) ||
-        'http://127.0.0.1:5562',
-      DELIVERY:
-        this.configService.get<string>(DELIVERY_SERVICE_URL) ||
-        'http://127.0.0.1:5563',
-      RESTAURANT:
-        this.configService.get<string>(RESTAURANT_SERVICE_URL) ||
-        'http://127.0.0.1:5564',
-    };
+     this.serviceUrls = {
+       IDENTITY:
+         this.configService.get<string>(IDENTITY_SERVICE_URL) ||
+         'http://127.0.0.1:5560',
+       CUSTOMER:
+         this.configService.get<string>(CUSTOMER_SERVICE_URL) ||
+         'http://127.0.0.1:5561',
+       LOCATION:
+         this.configService.get<string>(LOCATION_SERVICE_URL) ||
+         'http://127.0.0.1:5562',
+       DELIVERY:
+         this.configService.get<string>(DELIVERY_SERVICE_URL) ||
+         'http://127.0.0.1:5563',
+       RESTAURANT:
+         this.configService.get<string>(RESTAURANT_SERVICE_URL) ||
+         'http://127.0.0.1:5564',
+       PUBLICATIONS:
+         this.configService.get<string>(PUBLICATIONS_SERVICE_URL) ||
+         'http://127.0.0.1:5565',
+     };
   }
 
   /**

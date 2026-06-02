@@ -12,7 +12,7 @@ import {
 import { RestaurantOrmEntity } from './restaurant.orm';
 
 @Entity({ name: 'restaurant_opening_hours' })
-@Index(['restaurantId', 'dayOfWeek'], { unique: true })
+@Index(['restaurantId', 'dayOfWeek'], { unique: true, where: 'deleted_at IS NULL' })
 export class RestaurantOpeningHoursOrmEntity {
   @PrimaryColumn('uuid')
   id: string;

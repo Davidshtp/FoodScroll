@@ -37,55 +37,68 @@ export class CreateRestaurantUseCase {
   ) {}
 
   async execute(input: CreateRestaurantInput): Promise<CreateRestaurantOutput> {
-    const existing = await this.restaurantRepo.findByUserId(input.userId);
-    if (existing) {
+    const existingActive = await this.restaurantRepo.findByUserId(input.userId);
+    if (existingActive) {
       throw new RestaurantAlreadyExistsError(input.userId);
     }
 
-    const initials = input.name
-      .split(' ')
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+    const existingDeleted = await this.restaurantRepo.findDeletedByUserId(input.userId);
 
-    const banners = [
-      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4',
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5',
-      'https://images.unsplash.com/photo-1414235077428-338989a2e8c0',
-      'https://images.unsplash.com/photo-1550966871-3ed3cdb51f3a',
-      'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17',
-    ];
-    const bannerUrl = banners[Math.floor(Math.random() * banners.length)];
+    let restaurant: Restaurant;
 
-    const restaurant = Restaurant.create({
-      id: uuidv4(),
-      userId: input.userId,
-      name: input.name,
-      description: input.description,
-      phone: input.phone,
-      email: input.email,
-      logoUrl: `https://ui-avatars.com/api/?name=${initials}&background=random&color=fff&rounded=true`,
-      bannerUrl,
-    });
+    if (existingDeleted) {
+      restaurant = existingDeleted.updateBasicInfo({
+        name: input.name,
+        description: input.description,
+        phone: input.phone,
+        email: input.email,
+      });
+      restaurant = await this.restaurantRepo.restore(restaurant);
+    } else {
+      const initials = input.name
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
 
-    const saved = await this.restaurantRepo.save(restaurant);
+      const banners = [
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4',
+        'https://images.unsplash.com/photo-1555396273-367ea4eb4db5',
+        'https://images.unsplash.com/photo-1414235077428-338989a2e8c0',
+        'https://images.unsplash.com/photo-1550966871-3ed3cdb51f3a',
+        'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17',
+      ];
+      const bannerUrl = banners[Math.floor(Math.random() * banners.length)];
+
+      restaurant = Restaurant.create({
+        id: uuidv4(),
+        userId: input.userId,
+        name: input.name,
+        description: input.description,
+        phone: input.phone,
+        email: input.email,
+        logoUrl: `https://ui-avatars.com/api/?name=${initials}&background=random&color=fff&rounded=true`,
+        bannerUrl,
+      });
+      restaurant = await this.restaurantRepo.save(restaurant);
+    }
 
     let accessToken = '';
     if (input.authorization) {
       const status = this.onboardingCalculator.calculate({
-        restaurant: saved,
+        restaurant: restaurant,
         hasAddress: false,
         totalHoursDays: 0,
       });
       const result = await this.identityPort.updateUserStatus({
-        userId: saved.userId,
+        userId: restaurant.userId,
         onboardingStatus: status,
         authorization: input.authorization,
       });
       accessToken = result.access_token;
     }
 
-    return { restaurant: saved, access_token: accessToken };
+    return { restaurant, access_token: accessToken };
   }
 }

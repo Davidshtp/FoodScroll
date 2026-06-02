@@ -34,8 +34,9 @@ Esto abrira **Windows Terminal** con **9 pestañas**, una para cada microservici
 | 5 | **Delivery Service** | 5563 | `npm run start:dev` |
 | 6 | **Restaurant Service** | 5564 | `npm run start:dev` |
 | 7 | **Publications Service** | 5565 | `npm run start:dev` |
-| 8 | **Python Scraper** | 5591 | `python main.py` |
-| 9 | **Python License Scraper** | 5592 | `python main.py` |
+| 8 | **Engagement Service** | 5566 | `npm run start:dev` |
+| 9 | **Python Scraper** | 5591 | `python main.py` |
+| 10 | **Python License Scraper** | 5592 | `python main.py` |
 
 ---
 
@@ -80,7 +81,7 @@ python main.py
 ## Verificar que los servicios estan corriendo
 
 ```bash
-netstat -ano | findstr "3000 5560 5561 5562 5563 5564 5565"
+netstat -ano | findstr "3000 5560 5561 5562 5563 5564 5565 5566"
 ```
 
 Deberias ver los puertos como **LISTENING**.
@@ -98,6 +99,7 @@ FeedGo/
 ├── delivery-service/           (Servicio de Entregas - Puerto 5563)
 ├── restaurant-service/         (Servicio de Restaurantes - Puerto 5564)
 ├── publications-service/       (Servicio de Publicaciones - Puerto 5565)
+├── engagement-service/         (Servicio de Engagement - Puerto 5566)
 ├── python-scraper/             (Scraper Python - Puerto 5591)
 ├── python-license-scraper/     (Scraper de Licencias Python - Puerto 5592)
 ├── flutter_app/                (App Flutter)
@@ -115,6 +117,47 @@ FeedGo/
 - Un usuario RESTAURANT comienza con `isActive: false` al registrarse.
 - `isActive` se pone en `true` automaticamente cuando el usuario completa todo el onboarding (perfil, direccion y horarios).
 - Los endpoints GET de publicaciones (listar, obtener) estan disponibles para todos los usuarios autenticados.
+
+### Engagement (Likes, Seguidores, Comentarios)
+
+#### Likes
+| Método | Ruta | Roles |
+|--------|------|-------|
+| `POST` | `/api/engagement/likes/toggle/:publicationId` | CUSTOMER |
+| `GET` | `/api/engagement/likes/count/:publicationId` | CUSTOMER |
+| `GET` | `/api/engagement/likes/check/:publicationId` | CUSTOMER |
+
+- Solo usuarios `CUSTOMER` pueden dar/quitar likes a publicaciones.
+- Toggle: si ya tiene like, lo quita; si no, lo crea.
+
+#### Seguidores
+| Método | Ruta | Roles |
+|--------|------|-------|
+| `POST` | `/api/engagement/followers/:userId` | CUSTOMER |
+| `DELETE` | `/api/engagement/followers/:userId` | CUSTOMER |
+| `GET` | `/api/engagement/followers/:userId` | CUSTOMER |
+| `GET` | `/api/engagement/followers/:userId/count` | CUSTOMER |
+| `GET` | `/api/engagement/following/:userId` | CUSTOMER |
+| `GET` | `/api/engagement/following/:userId/count` | CUSTOMER |
+| `GET` | `/api/engagement/mutual/:userId` | CUSTOMER |
+
+- Solo usuarios `CUSTOMER` pueden seguir/dejar de seguir.
+- Un usuario no puede seguirse a si mismo.
+- Un `CUSTOMER` no puede seguir a un usuario `DELIVERY` (validado via identity-service).
+- Los usuarios `DELIVERY` no pueden usar ninguna funcion de engagement.
+
+#### Comentarios
+| Método | Ruta | Roles |
+|--------|------|-------|
+| `POST` | `/api/engagement/comments` | CUSTOMER, RESTAURANT |
+| `GET` | `/api/engagement/comments/:publicationId` | CUSTOMER, RESTAURANT |
+| `GET` | `/api/engagement/comments/:publicationId/count` | CUSTOMER, RESTAURANT |
+| `DELETE` | `/api/engagement/comments/:commentId` | CUSTOMER, RESTAURANT |
+
+- Usuarios `CUSTOMER` y `RESTAURANT` pueden crear/comentar/eliminar en publicaciones.
+- Solo el dueño de un comentario puede eliminarlo.
+- Si un comentario tiene respuestas (hijos, nietos, etc.), se eliminan en cascada.
+- Los comentarios admiten respuestas mediante `parentId` en el body.
 
 ### Onboarding RESTAURANT
 

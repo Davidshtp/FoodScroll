@@ -24,12 +24,7 @@ export class ServiceSecretGuard implements CanActivate {
     const secret = request.headers[HEADER_SERVICE_SECRET];
 
     if (!secret) {
-      this.logger.warn(
-        `Peticion bloqueada (sin service-secret): ${request.method} ${request.url} desde ${request.ip}`,
-      );
-      throw new ForbiddenException(
-        'Acceso denegado: esta API solo acepta peticiones internas',
-      );
+      return true;
     }
 
     if (secret !== this.serviceSecret) {
@@ -41,6 +36,7 @@ export class ServiceSecretGuard implements CanActivate {
       );
     }
 
+    request._internalRequest = true;
     return true;
   }
 }

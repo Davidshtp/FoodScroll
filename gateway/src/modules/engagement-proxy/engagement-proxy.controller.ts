@@ -105,6 +105,7 @@ export class EngagementProxyController {
   }
 
   @Roles(Role.CUSTOMER)
+  @UseGuards(IsActiveGuard)
   @Delete('followers/:userId')
   @HttpCode(HttpStatus.OK)
   async unfollow(
@@ -246,6 +247,7 @@ export class EngagementProxyController {
   }
 
   @Roles(Role.CUSTOMER, Role.RESTAURANT)
+  @UseGuards(IsActiveGuard)
   @Delete('comments/:id')
   @HttpCode(HttpStatus.OK)
   async deleteComment(

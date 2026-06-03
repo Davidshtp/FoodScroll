@@ -37,6 +37,7 @@ import { DeleteAddressUseCase } from '../../application/usecases/address/delete-
 import { AppController } from '../http/controllers/app.controller';
 import { CustomerProfileController } from '../http/controllers/customer-profile.controller';
 import { AddressController } from '../http/controllers/address.controller';
+import { CustomerInternalController } from '../http/controllers/customer-internal.controller';
 
 // Interfaces - Guards, Interceptors, Filters, Strategies
 import { ServiceSecretGuard, JwtAuthGuard } from '../http/guards';
@@ -82,7 +83,7 @@ import { JwtStrategy } from '../http/strategies';
     }),
     TypeOrmModule.forFeature([CustomerProfileOrmEntity, AddressOrmEntity]),
   ],
-  controllers: [AppController, CustomerProfileController, AddressController],
+  controllers: [AppController, CustomerProfileController, AddressController, CustomerInternalController],
   providers: [
     // ───── Repositories ─────
     {
@@ -115,11 +116,11 @@ import { JwtStrategy } from '../http/strategies';
     // ───── Global Guards ─────
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
+      useClass: ServiceSecretGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: ServiceSecretGuard,
+      useClass: JwtAuthGuard,
     },
 
     // ───── Global Interceptors ─────

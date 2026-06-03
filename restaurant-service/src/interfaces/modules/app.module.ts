@@ -46,6 +46,7 @@ import { RestaurantOnboardingCalculator } from '../../application/services/resta
 import { RestaurantController } from '../http/controllers/restaurant.controller';
 import { RestaurantAddressController } from '../http/controllers/restaurant-address.controller';
 import { RestaurantOpeningHoursController } from '../http/controllers/restaurant-opening-hours.controller';
+import { RestaurantInternalController } from '../http/controllers/restaurant-internal.controller';
 
 import { ServiceSecretGuard, JwtAuthGuard } from '../http/guards';
 import { LoggingInterceptor } from '../http/interceptors/logging.interceptor';
@@ -102,6 +103,7 @@ import { JwtStrategy } from '../http/strategies';
     RestaurantController,
     RestaurantAddressController,
     RestaurantOpeningHoursController,
+    RestaurantInternalController,
   ],
   providers: [
     {
@@ -124,11 +126,11 @@ import { JwtStrategy } from '../http/strategies';
     JwtStrategy,
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
+      useClass: ServiceSecretGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: ServiceSecretGuard,
+      useClass: JwtAuthGuard,
     },
     {
       provide: APP_INTERCEPTOR,

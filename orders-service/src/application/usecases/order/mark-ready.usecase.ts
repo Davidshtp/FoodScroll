@@ -1,0 +1,42 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { Order } from '../../../domain/entities/order.entity';
+import { OrderStatus } from '../../../domain/enums/order-status.enum';
+import { OrderRepository, ORDER_REPOSITORY } from '../../../domain/repositories/order.repository';
+import { OrderNotFoundError, ForbiddenRoleError, InvalidOrderStatusTransitionError } from '../../../domain/errors/domain.errors';
+
+export interface MarkReadyInput {
+  orderId: string;
+  userId: string;
+  role: string;
+}
+
+export interface MarkReadyOutput {
+  order: Order;
+}
+
+@Injectable()
+export class MarkReadyUseCase {
+  constructor(
+    @Inject(ORDER_REPOSITORY) private readonly orderRepo: OrderRepository,
+  ) {}
+
+  async execute(input: MarkReadyInput): Promise<MarkReadyOutput> {
+    if (input.role !== 'RESTAURANT') {
+      throw new ForbiddenRoleError(input.role, 'mark orders as ready');
+    }
+
+    const order = await this.orderRepo.findById(input.orderId);
+    if (!order) {
+      throw new OrderNotFoundError(input.orderId);
+    }
+
+    if (order.status !== OrderStatus.PREPARING) {
+      throw new InvalidOrderStatusTransitionError(order.status, OrderStatus.READY_FOR_PICKUP);
+    }
+
+    const updatedOrder = order.updateStatus(OrderStatus.READY_FOR_PICKUP);
+    const savedOrder = await this.orderRepo.update(updatedOrder);
+
+    return { order: savedOrder };
+  }
+}

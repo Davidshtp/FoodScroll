@@ -7,17 +7,11 @@ class AppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Image.asset(
+      'assets/images/FOODSCROLLPNG.png',
       width: size,
       height: size,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        // Updated asset path
-        image: DecorationImage(
-          image: AssetImage('assets/images/FOODSCROLL.jpg'),
-          fit: BoxFit.cover,
-        ),
-      ),
+      fit: BoxFit.contain,
     );
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../theme/app_typography.dart';
-import '../../../theme/app_colors.dart';
 import '../../components/role_card.dart';
 import '../../components/app_logo.dart';
 import '../../components/futuristic_background.dart';
@@ -15,12 +14,12 @@ class RoleSelectionPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: FuturisticBackground(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               // Logo
               const SizedBox(height: 20),
               const Align(
@@ -70,15 +69,14 @@ class RoleSelectionPage extends ConsumerWidget {
                 isHighlighted: false,
               ),
 
-              const Spacer(),
-              // Footer
+              const SizedBox(height: 32),
               Center(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 24.0),
                   child: Text(
                     'FOODSCROLL LOGÍSTICA DE USUARIOS © 2026',
                     style: AppTypography.labelSmall.copyWith(
-                      color: const Color(0xFF444444), // Darker grey for footer
+                      color: const Color(0xFF444444),
                       letterSpacing: 3.0,
                       fontWeight: FontWeight.w600,
                       fontSize: 10,
@@ -87,6 +85,7 @@ class RoleSelectionPage extends ConsumerWidget {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),
@@ -106,7 +105,11 @@ class RoleSelectionPage extends ConsumerWidget {
       icon: icon,
       isSelected: isHighlighted,
       onTap: () async {
-        await ref.read(authServiceProvider).saveClientType(role);
+        final auth = ref.read(authServiceProvider);
+        if (await auth.isLoggedIn()) {
+          await auth.logout();
+        }
+        await auth.saveClientType(role);
         if (context.mounted) {
           context.go('/login');
         }

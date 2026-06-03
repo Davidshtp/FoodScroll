@@ -18,7 +18,7 @@ class PrimaryButton extends StatelessWidget {
     // Gradient button style
     return Container(
       width: double.infinity,
-      height: 56, // Slightly taller for modern touch
+      height: 50,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -31,7 +31,7 @@ class PrimaryButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(30), // Pill shape
         boxShadow: [
            BoxShadow(
-             color: const Color(0xFFFF3B30).withOpacity(0.4),
+             color: const Color(0xFFFF3B30).withValues(alpha: 0.4),
              blurRadius: 20,
              offset: const Offset(0, 8),
              spreadRadius: 2,

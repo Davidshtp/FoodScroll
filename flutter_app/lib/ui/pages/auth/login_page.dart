@@ -8,7 +8,14 @@ import '../../components/custom_text_field.dart';
 import '../../components/primary_button.dart';
 import '../../components/app_logo.dart';
 import '../../components/futuristic_background.dart';
+import '../../../core/api_exception.dart';
+import '../../../core/onboarding_navigation.dart';
+import '../../../models/user_model.dart';
 import '../../../state/auth_provider.dart';
+import '../../../services/customer_service.dart';
+import '../../../services/delivery_service.dart';
+import '../../../services/restaurant_service.dart';
+import '../../../services/storage_service.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -36,17 +43,59 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         _emailController.text,
         _passwordController.text,
       );
-      // Determine where to go after successful login.
-      // For now, maybe Home? Or stay here?
-      // Navigation: "Después de login exitoso -> no implementar navegación final aún (solo dejar preparado)"
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('Login exitoso')),
-         );
-         // Ideally navigate to home if successful, but keeping strictly per instructions
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login exitoso')),
+        );
       }
+      await _handlePostLogin();
+    } on ApiException catch (e) {
+      setState(() => _errorMessage = e.displayMessage);
     } catch (e) {
-      setState(() => _errorMessage = e.toString().replaceAll('Exception: ', '')); // Clean up message
+      setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> _handlePostLogin() async {
+    final storage = StorageService();
+    final userData = await storage.getUser();
+    final user = userData != null ? AuthUser.fromJson(userData) : null;
+
+    if (!mounted) {
+      return;
+    }
+
+    try {
+      final route = await OnboardingNavigation.resolvePostAuthRoute(
+        user: user,
+        customerService: ref.read(customerServiceProvider),
+        authService: ref.read(authServiceProvider),
+        deliveryService: ref.read(deliveryServiceProvider),
+        restaurantService: ref.read(restaurantServiceProvider),
+      );
+      if (mounted) {
+        context.go(route);
+      }
+    } on CustomerProfileException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      if (e.statusCode == 401) {
+        context.go('/login');
+        return;
+      }
+      setState(() => _errorMessage = e.message);
+    } on DeliveryProfileException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _errorMessage = e.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _errorMessage = 'Ocurrió un error, intenta nuevamente',
+        );
+      }
     }
   }
 
@@ -61,31 +110,31 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 60),
+              const SizedBox(height: 36),
               // Logo
-              const Center(child: AppLogo(size: 80)),
-              const SizedBox(height: 32),
+              const Center(child: AppLogo(size: 62)),
+              const SizedBox(height: 20),
               
               Text(
                 'Bienvenido',
                 style: AppTypography.headlineLarge.copyWith(
                   fontWeight: FontWeight.w900,
-                  fontSize: 40, // Larger visual impact
+                  fontSize: 34,
                   color: Colors.white,
                   letterSpacing: -1.0,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 28),
 
               if (_errorMessage != null)
                 Container(
-                  padding: const EdgeInsets.all(AppSpacing.m),
-                  margin: const EdgeInsets.only(bottom: 24),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
+                    color: AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.error.withOpacity(0.5)),
+                    border: Border.all(color: AppColors.error.withValues(alpha: 0.5)),
                   ),
                   child: Text(
                     _errorMessage!,
@@ -101,7 +150,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 prefixIcon: Icons.alternate_email,
                 hintText: 'usuario@foodscroll.app',
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               CustomTextField(
                 label: 'Contraseña',
                 controller: _passwordController,
@@ -125,7 +174,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // Login Button
               PrimaryButton(
@@ -133,7 +182,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 onPressed: _login,
                 isLoading: state.isLoading,
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
 
               // Divider "O CONTINÚA CON" (Thinner, more subtle)
               Row(
@@ -154,7 +203,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   const Expanded(child: Divider(color: Color(0xFF333333))),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
 
               // Social Buttons
               Row(
@@ -166,7 +215,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ],
               ),
 
-              const SizedBox(height: 48),
+              const SizedBox(height: 32),
 
               // Register Link
               Row(
@@ -191,33 +240,47 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ],
               ),
               
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
               
               // Footer Terms
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
                   'AL INICIAR SESIÓN, CONFIRMAS QUE HAS LEÍDO Y\nACEPTAS NUESTROS TÉRMINOS DE SERVICIO Y\nPOLÍTICA DE COOKIES.',
                   textAlign: TextAlign.center,
                   style: AppTypography.labelSmall.copyWith(
                     fontSize: 9,
-                    color: AppColors.textTertiary.withOpacity(0.4),
+                    color: AppColors.textTertiary.withValues(alpha: 0.4),
                     height: 1.5,
                     letterSpacing: 1.0,
                   ),
                 ),
               ),
                // Change Role (Hidden or small at bottom, not in design explicitly but needed for flow)
-               TextButton(
-                onPressed: () async {
-                  await ref.read(authServiceProvider).clearClientType();
-                  if (context.mounted) {
-                    context.go('/');
-                  }
-                },
-                child: Text(
-                  'Cambiar rol',
-                  style: AppTypography.labelSmall.copyWith(fontSize: 10, color: AppColors.textTertiary.withOpacity(0.2)),
+               Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: OutlinedButton(
+                  onPressed: () async {
+                    await ref.read(authServiceProvider).clearClientType();
+                    if (context.mounted) {
+                      context.go('/');
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.accent.withValues(alpha: 0)),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                  child: Text(
+                    'Cambiar tipo de cuenta',
+                    style: AppTypography.labelLarge.copyWith(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -230,7 +293,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _socialButton(IconData icon, String label) {
     return Container(
       width: 140,
-      padding: const EdgeInsets.symmetric(vertical: 14), // Taller
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0F0F0F), // Dark background
         border: Border.all(color: const Color(0xFF333333)), // Standard border

@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, MinLength, MaxLength, Matches, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsEnum, IsString, MinLength, MaxLength, Matches, IsNotEmpty } from 'class-validator';
 import { ClientApp } from '../../../domain/value-objects/client-app.vo';
 
 export class RegisterDto {
@@ -32,4 +32,13 @@ export class LoginDto {
 
 export class RefreshTokenDto {
   refresh_token?: string;
+}
+
+export class GoogleLoginDto {
+  @IsString({ message: 'idToken debe ser un string' })
+  @IsNotEmpty({ message: 'idToken es obligatorio' })
+  idToken: string;
+
+  @IsEnum(ClientApp, { message: 'Client inválido o no proporcionado (customer|delivery|restaurant)' })
+  client: ClientApp;
 }

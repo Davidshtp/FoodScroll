@@ -5,3 +5,4 @@ export * from './persistence';
 export * from './security';
 export * from './email';
 export * from './config';
+export * from './google';

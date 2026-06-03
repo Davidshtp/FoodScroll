@@ -7,6 +7,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 // Modules
 import { AuthModule } from './auth.module';
 import { CodeModule } from './code.module';
+import { GoogleModule } from './google.module';
 
 // Controllers
 import { AppController } from '../http/controllers/app.controller';
@@ -49,6 +50,7 @@ import { UpdateUserUseCase } from '../../application/usecases/user';
     }),
     AuthModule,
     CodeModule,
+    GoogleModule,
   ],
   controllers: [AppController, UserController],
   providers: [

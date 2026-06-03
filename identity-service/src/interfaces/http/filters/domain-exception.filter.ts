@@ -1,6 +1,6 @@
 import {ExceptionFilter,Catch,ArgumentsHost,HttpStatus} from '@nestjs/common';
 import { Response } from 'express';
-import {DomainError,InvalidCredentialsError,UserAlreadyExistsError,UserNotFoundError,InvalidCodeError,CodeExpiredError,EmailNotVerifiedError,EmailAlreadyVerifiedError,InvalidRefreshTokenError,AccessDeniedError,TokenRevokedError} from '../../../domain/errors/domain.errors';
+import {DomainError,InvalidCredentialsError,UserAlreadyExistsError,UserNotFoundError,InvalidCodeError,CodeExpiredError,EmailNotVerifiedError,EmailAlreadyVerifiedError,InvalidRefreshTokenError,AccessDeniedError,TokenRevokedError,GoogleAuthError} from '../../../domain/errors/domain.errors';
 
 @Catch(DomainError)
 export class DomainExceptionFilter implements ExceptionFilter {
@@ -29,6 +29,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof AccessDeniedError) {
       status = HttpStatus.FORBIDDEN;
     } else if (exception instanceof TokenRevokedError) {
+      status = HttpStatus.UNAUTHORIZED;
+    } else if (exception instanceof GoogleAuthError) {
       status = HttpStatus.UNAUTHORIZED;
     }
 

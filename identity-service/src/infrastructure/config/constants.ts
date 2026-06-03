@@ -15,6 +15,9 @@ export const BREVO_API_KEY = 'BREVO_API_KEY';
 export const EMAIL_FROM = 'EMAIL_FROM';
 export const EMAIL_FROM_NAME = 'EMAIL_FROM_NAME';
 
+// ───── Google OAuth ─────
+export const GOOGLE_CLIENT_ID = 'GOOGLE_CLIENT_ID';
+
 // ───── Internal Communication Headers ─────
 export const HEADER_SERVICE_SECRET = 'x-service-secret';
 export const HEADER_CORRELATION_ID = 'x-correlation-id';

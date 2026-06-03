@@ -82,3 +82,10 @@ export class TokenRevokedError extends DomainError {
     this.name = 'TokenRevokedError';
   }
 }
+
+export class GoogleAuthError extends DomainError {
+  constructor(message?: string) {
+    super(message || 'Error de autenticación con Google');
+    this.name = 'GoogleAuthError';
+  }
+}

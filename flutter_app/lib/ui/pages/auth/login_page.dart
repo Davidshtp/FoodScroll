@@ -163,7 +163,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {}, // TODO: Implement forgot password
+                  onPressed: () => context.push('/forgot-password'),
                   child: Text(
                     '¿OLVIDASTE TU CONTRASEÑA?',
                     style: AppTypography.labelSmall.copyWith(

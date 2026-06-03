@@ -5,6 +5,8 @@ import '../services/storage_service.dart';
 import '../ui/pages/auth/role_selection_page.dart';
 import '../ui/pages/auth/login_page.dart';
 import '../ui/pages/auth/register_page.dart';
+import '../ui/pages/auth/forgot_password_page.dart';
+import '../ui/pages/auth/reset_password_page.dart';
 import '../ui/pages/auth/delivery_profile_page.dart';
 import '../ui/pages/auth/add_vehicle_page.dart';
 import '../ui/pages/auth/add_license_page.dart';
@@ -25,7 +27,7 @@ final router = GoRouter(
 
     final currentPath = state.matchedLocation;
     final isOnSelectionPage = currentPath == '/';
-    final isAuthRoute = currentPath == '/login' || currentPath == '/register';
+    final isAuthRoute = currentPath == '/login' || currentPath == '/register' || currentPath == '/forgot-password' || currentPath == '/reset-password';
     final hasValidLocalSession =
         accessToken != null && accessToken.isNotEmpty && userData != null;
 
@@ -73,6 +75,11 @@ final router = GoRouter(
     GoRoute(path: '/', builder: (context, state) => const RoleSelectionPage()),
     GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
     GoRoute(path: '/register', builder: (context, state) => const RegisterPage()),
+    GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordPage()),
+    GoRoute(path: '/reset-password', builder: (context, state) {
+      final email = state.extra as String? ?? '';
+      return ResetPasswordPage(email: email);
+    }),
     GoRoute(path: '/home', builder: (context, state) => const HomePage()),
     GoRoute(path: '/complete-profile', builder: (context, state) => const CompleteProfilePage()),
     GoRoute(path: '/create-address', builder: (context, state) => const AddAddressView()),

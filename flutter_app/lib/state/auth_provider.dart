@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/api_exception.dart';
 import '../services/auth/auth_service.dart';
 import '../services/storage_service.dart';
 
@@ -10,7 +11,6 @@ final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
 });
 
-// State for loading/error handling during auth actions
 class AuthState {
   final bool isLoading;
   final String? error;
@@ -29,7 +29,7 @@ class AuthState {
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
-      error: error, // If not provided, error is cleared (or use logic to keep) - usually clear on new state
+      error: error,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
     );
   }
@@ -44,8 +44,10 @@ class AuthController extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await _authService.login(email, password);
-      // Success
       state = state.copyWith(isLoading: false, isAuthenticated: true);
+    } on ApiException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.displayMessage);
+      rethrow;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -57,24 +59,27 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       await _authService.register(email, password);
       state = state.copyWith(isLoading: false);
-      // After register usually redirect to login, so authenticated is false still
+    } on ApiException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.displayMessage);
+      rethrow;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
     }
   }
-  
+
   Future<void> logout() async {
     await _authService.logout();
     state = state.copyWith(isAuthenticated: false);
   }
 
   Future<void> checkAuthStatus() async {
-     final isLoggedIn = await _authService.isLoggedIn();
-     state = state.copyWith(isAuthenticated: isLoggedIn);
+    final isLoggedIn = await _authService.isLoggedIn();
+    state = state.copyWith(isAuthenticated: isLoggedIn);
   }
 }
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
+final authControllerProvider =
+    StateNotifierProvider<AuthController, AuthState>((ref) {
   return AuthController(ref.watch(authServiceProvider));
 });

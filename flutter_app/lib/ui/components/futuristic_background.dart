@@ -27,7 +27,7 @@ class FuturisticBackground extends StatelessWidget {
                 center: Alignment.topCenter,
                 radius: 1.0,
                 colors: [
-                  AppColors.primary.withOpacity(0.2),
+                  AppColors.primary.withValues(alpha: 0.2),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 1.0],
@@ -54,7 +54,7 @@ class GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF222222).withOpacity(0.3)
+      ..color = const Color(0xFF222222).withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     const double gridSize = 40;

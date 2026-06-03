@@ -7,7 +7,6 @@ class StorageService {
   static const String _keyAccessToken = 'access_token';
   static const String _keyRefreshToken = 'refresh_token';
   static const String _keyUser = 'user_data';
-
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   // --- Client Type (Role) ---
@@ -68,6 +67,8 @@ class StorageService {
   Future<void> clearSession() async {
     await clearTokens();
     await clearUser();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('onboarding_status');
     // Do NOT clear client type on logout usually, but depends on requirements. 
     // Keeping client type allows quick login back into same role.
   }

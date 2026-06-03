@@ -19,8 +19,7 @@ class RoleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Exact colors from design reference
     final Color activeRed = const Color(0xFFFF3B30); // Bright pure red
-    final Color inactiveBorder = const Color(0xFFFF3B30).withOpacity(0.5); // Dimmed red
-    final Color cardBg = const Color(0xFF0F0F0F); // Dark background
+    final Color inactiveBorder = const Color(0xFFFF3B30).withValues(alpha: 0.5); // Dimmed red
     const double borderRadius = 24.0;
 
     if (isSelected) {
@@ -36,7 +35,7 @@ class RoleCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(borderRadius),
             boxShadow: [
               BoxShadow(
-                color: activeRed.withOpacity(0.4),
+                color: activeRed.withValues(alpha: 0.4),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
                 spreadRadius: 2,

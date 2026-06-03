@@ -16,8 +16,12 @@ dependencies:
   flutter_riverpod: ^2.5.1
   flutter_secure_storage: ^9.0.0
   flutter_svg: ^2.0.10
+  geolocator: ^10.1.0
+  flutter_map: ^7.0.2
   go_router: ^14.0.0
   google_fonts: ^6.2.1
+  image_picker: ^1.0.7
+  latlong2: ^0.9.1
   shared_preferences: ^2.2.3
 
 dev_dependencies:

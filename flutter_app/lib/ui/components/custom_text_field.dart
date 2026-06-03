@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 
@@ -9,8 +10,12 @@ class CustomTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final String? errorText;
   final IconData? prefixIcon;
+  final IconData? suffixIcon;
   final VoidCallback? onSuffixIconPressed; // If needed for password visibility toggle
   final String? hintText;
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final List<TextInputFormatter>? inputFormatters;
 
   const CustomTextField({
     super.key,
@@ -20,8 +25,12 @@ class CustomTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.errorText,
     this.prefixIcon,
+    this.suffixIcon,
     this.onSuffixIconPressed,
     this.hintText,
+    this.readOnly = false,
+    this.onTap,
+    this.inputFormatters,
   });
 
   @override
@@ -31,13 +40,13 @@ class CustomTextField extends StatelessWidget {
       children: [
         // Label
         Padding(
-          padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
+          padding: const EdgeInsets.only(left: 16.0, bottom: 6.0),
           child: Text(
             label.toUpperCase(),
             style: AppTypography.labelSmall.copyWith(
               color: const Color(0xFFC6A666), // Gold
               letterSpacing: 1.5,
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -48,11 +57,14 @@ class CustomTextField extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          readOnly: readOnly,
+          onTap: onTap,
+          inputFormatters: inputFormatters,
           style: AppTypography.bodyLarge.copyWith( // Slightly larger text
             color: Colors.white,
             fontWeight: FontWeight.w500,
           ),
-          cursorColor: AppColors.primary, // Red cursor
+          cursorColor: AppColors.accent,
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFF0F0F0F), // Dark background
@@ -64,7 +76,15 @@ class CustomTextField extends StatelessWidget {
             prefixIcon: prefixIcon != null 
                 ? Icon(prefixIcon, color: const Color(0xFF666666), size: 20)
                 : null,
-            contentPadding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 24.0), // Generous padding
+            suffixIcon: suffixIcon == null
+                ? null
+                : onSuffixIconPressed != null
+                    ? IconButton(
+                        icon: Icon(suffixIcon, color: const Color(0xFF666666), size: 20),
+                        onPressed: onSuffixIconPressed,
+                      )
+                    : Icon(suffixIcon, color: const Color(0xFF666666), size: 20),
+            contentPadding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 22.0),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
               borderSide: BorderSide.none,
@@ -75,7 +95,7 @@ class CustomTextField extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
-              borderSide: const BorderSide(color: Color(0xFFDC143C), width: 1.5), // Crimson border on focus
+              borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),

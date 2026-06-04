@@ -16,6 +16,7 @@ import { AddressOrmEntity } from '../../infrastructure/persistence/typeorm/entit
 import { TypeOrmCustomerProfileRepository } from '../../infrastructure/persistence/typeorm/repositories/typeorm-customer-profile.repository';
 import { TypeOrmAddressRepository } from '../../infrastructure/persistence/typeorm/repositories/typeorm-address.repository';
 import { IdentityServiceClient } from '../../infrastructure/http/identity-service.client';
+import { CloudinaryService } from '../../infrastructure/cloudinary/cloudinary.service';
 
 // Domain - Repository tokens
 import { CUSTOMER_PROFILE_REPOSITORY } from '../../domain/repositories/customer-profile.repository';
@@ -26,6 +27,8 @@ import { CUSTOMER_IDENTITY_PORT } from '../../application/ports/customer-identit
 import { CreateCustomerProfileUseCase } from '../../application/usecases/customer-profile/create-customer-profile.usecase';
 import { GetCustomerProfileUseCase } from '../../application/usecases/customer-profile/get-customer-profile.usecase';
 import { UpdateCustomerProfileUseCase } from '../../application/usecases/customer-profile/update-customer-profile.usecase';
+import { UploadAvatarUseCase } from '../../application/usecases/customer-profile/upload-avatar.usecase';
+import { DeleteAvatarUseCase } from '../../application/usecases/customer-profile/delete-avatar.usecase';
 
 // Application - Use Cases (Address)
 import { CreateAddressUseCase } from '../../application/usecases/address/create-address.usecase';
@@ -103,6 +106,11 @@ import { JwtStrategy } from '../http/strategies';
     CreateCustomerProfileUseCase,
     GetCustomerProfileUseCase,
     UpdateCustomerProfileUseCase,
+    UploadAvatarUseCase,
+    DeleteAvatarUseCase,
+
+    // ───── Infrastructure ─────
+    CloudinaryService,
 
     // ───── Use Cases (Address) ─────
     CreateAddressUseCase,

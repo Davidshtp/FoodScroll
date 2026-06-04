@@ -6,3 +6,7 @@ export { GetRestaurantAddressUseCase, GetRestaurantAddressInput, GetRestaurantAd
 export { UpsertRestaurantOpeningHoursUseCase, UpsertRestaurantOpeningHoursInput, UpsertRestaurantOpeningHoursOutput, OpeningHourItem } from './upsert-restaurant-opening-hours.usecase';
 export { GetRestaurantOpeningHoursUseCase, GetRestaurantOpeningHoursInput, GetRestaurantOpeningHoursOutput } from './get-restaurant-opening-hours.usecase';
 export { DeleteRestaurantUseCase, DeleteRestaurantInput, DeleteRestaurantOutput } from './delete-restaurant.usecase';
+export { UploadLogoUseCase, UploadImageInput as UploadLogoInput, UploadImageOutput as UploadLogoOutput } from './upload-logo.usecase';
+export { UploadBannerUseCase, UploadImageInput as UploadBannerInput, UploadImageOutput as UploadBannerOutput } from './upload-banner.usecase';
+export { DeleteLogoUseCase, DeleteImageInput as DeleteLogoInput, DeleteImageOutput as DeleteLogoOutput } from './delete-logo.usecase';
+export { DeleteBannerUseCase, DeleteImageInput as DeleteBannerInput, DeleteImageOutput as DeleteBannerOutput } from './delete-banner.usecase';

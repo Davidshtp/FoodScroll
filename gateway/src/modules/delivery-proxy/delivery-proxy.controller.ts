@@ -17,6 +17,7 @@ import { Role } from '../../config/constants';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ProxyService } from '../../infrastructure/http/proxy.service';
+import FormData from 'form-data';
 
 /**
  * Proxy de delivery.
@@ -66,6 +67,44 @@ export class DeliveryProxyController {
       service: 'DELIVERY',
       path: '/delivery-profile',
       body,
+    });
+    return result.data;
+  }
+
+  // ───── Avatar ─────
+
+  @Patch('profile/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @UploadedFile() file: any,
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const formData = new FormData();
+    formData.append('file', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'PATCH',
+      service: 'DELIVERY',
+      path: '/delivery-profile/avatar',
+      body: formData,
+      isMultipart: true,
+    });
+    return result.data;
+  }
+
+  @Delete('profile/avatar')
+  async deleteAvatar(
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'DELETE',
+      service: 'DELIVERY',
+      path: '/delivery-profile/avatar',
     });
     return result.data;
   }

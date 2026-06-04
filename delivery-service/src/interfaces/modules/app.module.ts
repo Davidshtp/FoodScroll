@@ -44,11 +44,14 @@ import { RuntVerificationAdapter } from '../../infrastructure/http/runt-verifica
 import { RuntLicenseVerificationAdapter } from '../../infrastructure/http/runt-license-verification.adapter';
 
 import { IdentityServiceClient } from '../../infrastructure/http/identity-service.client';
+import { CloudinaryService } from '../../infrastructure/cloudinary/cloudinary.service';
 
 import {
   CreateDeliveryProfileUseCase,
   GetDeliveryProfileUseCase,
   UpdateDeliveryProfileUseCase,
+  UploadAvatarUseCase,
+  DeleteAvatarUseCase,
 } from '../../application/usecases/delivery-profile';
 
 import {
@@ -155,6 +158,8 @@ import { OnboardingCalculator } from '../../application/services/onboarding-calc
     CreateDeliveryProfileUseCase,
     GetDeliveryProfileUseCase,
     UpdateDeliveryProfileUseCase,
+    UploadAvatarUseCase,
+    DeleteAvatarUseCase,
     RegisterVehicleUseCase,
     GetVehicleUseCase,
     ResolveCaptchaUseCase,
@@ -164,6 +169,7 @@ import { OnboardingCalculator } from '../../application/services/onboarding-calc
     GetLicenseUseCase,
     DeleteLicenseUseCase,
     OnboardingCalculator,
+    CloudinaryService,
     JwtStrategy,
     {
       provide: APP_GUARD,

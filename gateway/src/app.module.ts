@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PassportModule } from '@nestjs/passport';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { MulterModule } from '@nestjs/platform-express';
 import { JwtStrategy } from './common/strategies/jwt.strategy';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -29,6 +30,9 @@ import { OrdersProxyModule } from './modules/orders-proxy/orders-proxy.module';
     }),
 
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    MulterModule.register({
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
     ThrottlerModule.forRoot([
       {
         ttl: 60,

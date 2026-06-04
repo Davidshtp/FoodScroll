@@ -42,3 +42,15 @@ export class AddressCoordinatesAlreadyExistsError extends DomainError {
     super('Ya tienes una dirección registrada en esta ubicación (dentro de 30 metros)');
   }
 }
+
+export class CloudinaryUploadError extends DomainError {
+  constructor(detail?: string) {
+    super(`Error al subir imagen${detail ? ': ' + detail : ''}`);
+  }
+}
+
+export class CloudinaryDeleteError extends DomainError {
+  constructor(detail?: string) {
+    super(`Error al eliminar imagen${detail ? ': ' + detail : ''}`);
+  }
+}

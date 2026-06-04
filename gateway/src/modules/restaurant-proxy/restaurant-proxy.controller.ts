@@ -9,10 +9,11 @@ import {
   Req,
   UseInterceptors,
   UseGuards,
+  UploadedFile,
   UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { Role } from '../../config/constants';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -72,6 +73,76 @@ export class RestaurantProxyController {
       method: 'DELETE',
       service: 'RESTAURANT',
       path: '/restaurant',
+    });
+    return result.data;
+  }
+
+  // ───── Logo ─────
+
+  @Patch('profile/logo')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadLogo(
+    @UploadedFile() file: any,
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const formData = new FormData();
+    formData.append('file', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'PATCH',
+      service: 'RESTAURANT',
+      path: '/restaurant/logo',
+      body: formData,
+      isMultipart: true,
+    });
+    return result.data;
+  }
+
+  @Delete('profile/logo')
+  async deleteLogo(@Req() req: Request, @CurrentUser() user: any) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'DELETE',
+      service: 'RESTAURANT',
+      path: '/restaurant/logo',
+    });
+    return result.data;
+  }
+
+  // ───── Banner ─────
+
+  @Patch('profile/banner')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadBanner(
+    @UploadedFile() file: any,
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const formData = new FormData();
+    formData.append('file', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'PATCH',
+      service: 'RESTAURANT',
+      path: '/restaurant/banner',
+      body: formData,
+      isMultipart: true,
+    });
+    return result.data;
+  }
+
+  @Delete('profile/banner')
+  async deleteBanner(@Req() req: Request, @CurrentUser() user: any) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'DELETE',
+      service: 'RESTAURANT',
+      path: '/restaurant/banner',
     });
     return result.data;
   }

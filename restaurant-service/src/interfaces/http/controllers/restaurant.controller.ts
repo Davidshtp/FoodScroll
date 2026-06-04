@@ -8,13 +8,20 @@ import {
   UseGuards,
   HttpCode,
   Headers,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
   CreateRestaurantUseCase,
   GetRestaurantUseCase,
   UpdateRestaurantUseCase,
   DeleteRestaurantUseCase,
+  UploadLogoUseCase,
+  UploadBannerUseCase,
+  DeleteLogoUseCase,
+  DeleteBannerUseCase,
 } from '../../../application/usecases/restaurant';
 import { CreateRestaurantDto, UpdateRestaurantDto } from '../dtos';
 import { UserId } from '../decorators/user-id.decorator';
@@ -27,6 +34,10 @@ export class RestaurantController {
     private readonly getRestaurantUseCase: GetRestaurantUseCase,
     private readonly updateRestaurantUseCase: UpdateRestaurantUseCase,
     private readonly deleteRestaurantUseCase: DeleteRestaurantUseCase,
+    private readonly uploadLogoUseCase: UploadLogoUseCase,
+    private readonly uploadBannerUseCase: UploadBannerUseCase,
+    private readonly deleteLogoUseCase: DeleteLogoUseCase,
+    private readonly deleteBannerUseCase: DeleteBannerUseCase,
   ) {}
 
   @Post()
@@ -81,5 +92,37 @@ export class RestaurantController {
       userId,
       authorization,
     });
+  }
+
+  @Patch('logo')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadLogo(
+    @UserId() userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const result = await this.uploadLogoUseCase.execute({ userId, file });
+    return { logoUrl: result.imageUrl };
+  }
+
+  @Delete('logo')
+  async deleteLogo(@UserId() userId: string) {
+    const result = await this.deleteLogoUseCase.execute({ userId });
+    return { logoUrl: result.imageUrl };
+  }
+
+  @Patch('banner')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadBanner(
+    @UserId() userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const result = await this.uploadBannerUseCase.execute({ userId, file });
+    return { bannerUrl: result.imageUrl };
+  }
+
+  @Delete('banner')
+  async deleteBanner(@UserId() userId: string) {
+    const result = await this.deleteBannerUseCase.execute({ userId });
+    return { bannerUrl: result.imageUrl };
   }
 }

@@ -3,16 +3,22 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   UseGuards,
   HttpCode,
   Headers,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
   CreateDeliveryProfileUseCase,
   GetDeliveryProfileUseCase,
   UpdateDeliveryProfileUseCase,
+  UploadAvatarUseCase,
+  DeleteAvatarUseCase,
 } from '../../../application/usecases/delivery-profile';
 import { CreateDeliveryProfileDto, UpdateDeliveryProfileDto } from '../dtos';
 import { CurrentUser } from '../decorators/current-user.decorator';
@@ -24,6 +30,8 @@ export class DeliveryProfileController {
     private readonly createProfileUseCase: CreateDeliveryProfileUseCase,
     private readonly getProfileUseCase: GetDeliveryProfileUseCase,
     private readonly updateProfileUseCase: UpdateDeliveryProfileUseCase,
+    private readonly uploadAvatarUseCase: UploadAvatarUseCase,
+    private readonly deleteAvatarUseCase: DeleteAvatarUseCase,
   ) {}
 
   @Post()
@@ -68,5 +76,21 @@ export class DeliveryProfileController {
       gender: dto.gender,
       avatarUrl: dto.avatarUrl,
     });
+  }
+
+  @Patch('avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @CurrentUser('id') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const result = await this.uploadAvatarUseCase.execute({ userId, file });
+    return { avatarUrl: result.avatarUrl };
+  }
+
+  @Delete('avatar')
+  async deleteAvatar(@CurrentUser('id') userId: string) {
+    const result = await this.deleteAvatarUseCase.execute({ userId });
+    return { avatarUrl: result.avatarUrl };
   }
 }

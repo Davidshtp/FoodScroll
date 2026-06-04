@@ -7,12 +7,16 @@ import {
   Body,
   Param,
   Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { Role } from '../../config/constants';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ProxyService } from '../../infrastructure/http/proxy.service';
+import FormData from 'form-data';
 
 /**
  * Proxy de clientes.
@@ -62,6 +66,44 @@ export class CustomerProxyController {
       service: 'CUSTOMER',
       path: '/customer-profile',
       body,
+    });
+    return result.data;
+  }
+
+  // ───── Avatar ─────
+
+  @Patch('profile/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @UploadedFile() file: any,
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const formData = new FormData();
+    formData.append('file', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'PATCH',
+      service: 'CUSTOMER',
+      path: '/customer-profile/avatar',
+      body: formData,
+      isMultipart: true,
+    });
+    return result.data;
+  }
+
+  @Delete('profile/avatar')
+  async deleteAvatar(
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'DELETE',
+      service: 'CUSTOMER',
+      path: '/customer-profile/avatar',
     });
     return result.data;
   }

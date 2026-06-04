@@ -12,3 +12,13 @@ export {
   UpdateDeliveryProfileInput,
   UpdateDeliveryProfileOutput,
 } from './update-delivery-profile.usecase';
+export {
+  UploadAvatarUseCase,
+  UploadAvatarInput,
+  UploadAvatarOutput,
+} from './upload-avatar.usecase';
+export {
+  DeleteAvatarUseCase,
+  DeleteAvatarInput,
+  DeleteAvatarOutput,
+} from './delete-avatar.usecase';

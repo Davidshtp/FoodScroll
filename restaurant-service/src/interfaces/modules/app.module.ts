@@ -37,11 +37,16 @@ import {
   UpsertRestaurantOpeningHoursUseCase,
   GetRestaurantOpeningHoursUseCase,
   DeleteRestaurantUseCase,
+  UploadLogoUseCase,
+  UploadBannerUseCase,
+  DeleteLogoUseCase,
+  DeleteBannerUseCase,
 } from '../../application/usecases/restaurant';
 
 import { IdentityServiceClient } from '../../infrastructure/http/identity-service.client';
 import { RESTAURANT_IDENTITY_PORT } from '../../application/ports/restaurant-identity.port';
 import { RestaurantOnboardingCalculator } from '../../application/services/restaurant-onboarding-calculator.service';
+import { CloudinaryService } from '../../infrastructure/cloudinary/cloudinary.service';
 
 import { RestaurantController } from '../http/controllers/restaurant.controller';
 import { RestaurantAddressController } from '../http/controllers/restaurant-address.controller';
@@ -122,7 +127,12 @@ import { JwtStrategy } from '../http/strategies';
     UpsertRestaurantOpeningHoursUseCase,
     GetRestaurantOpeningHoursUseCase,
     DeleteRestaurantUseCase,
+    UploadLogoUseCase,
+    UploadBannerUseCase,
+    DeleteLogoUseCase,
+    DeleteBannerUseCase,
     RestaurantOnboardingCalculator,
+    CloudinaryService,
     JwtStrategy,
     {
       provide: APP_GUARD,

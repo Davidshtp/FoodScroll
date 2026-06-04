@@ -42,3 +42,15 @@ export class DuplicateDayOfWeekError extends DomainError {
     super(`El dia ${dayOfWeek} esta duplicado en el body`);
   }
 }
+
+export class CloudinaryUploadError extends DomainError {
+  constructor(detail?: string) {
+    super(`Error al subir imagen${detail ? ': ' + detail : ''}`);
+  }
+}
+
+export class CloudinaryDeleteError extends DomainError {
+  constructor(detail?: string) {
+    super(`Error al eliminar imagen${detail ? ': ' + detail : ''}`);
+  }
+}

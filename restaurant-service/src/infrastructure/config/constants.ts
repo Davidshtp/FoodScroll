@@ -17,3 +17,10 @@ export const HEADER_SERVICE_SECRET = 'x-service-secret';
 export const HEADER_CORRELATION_ID = 'x-correlation-id';
 export const HEADER_USER_ID = 'x-user-id';
 export const HEADER_USER_ROLE = 'x-user-role';
+
+// Cloudinary configuration keys
+export const CLOUDINARY_CLOUD_NAME = 'CLOUDINARY_CLOUD_NAME';
+export const CLOUDINARY_API_KEY = 'CLOUDINARY_API_KEY';
+export const CLOUDINARY_API_SECRET = 'CLOUDINARY_API_SECRET';
+export const CLOUDINARY_LOGO_FOLDER = 'CLOUDINARY_LOGO_FOLDER';
+export const CLOUDINARY_BANNER_FOLDER = 'CLOUDINARY_BANNER_FOLDER';

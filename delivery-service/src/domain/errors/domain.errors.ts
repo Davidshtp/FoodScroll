@@ -100,3 +100,17 @@ export class LicenseCaptchaResolutionError extends DomainError {
     this.name = 'LicenseCaptchaResolutionError';
   }
 }
+
+export class CloudinaryUploadError extends DomainError {
+  constructor(detail?: string) {
+    super(`Error al subir imagen${detail ? ': ' + detail : ''}`, 'CLOUDINARY_UPLOAD_ERROR');
+    this.name = 'CloudinaryUploadError';
+  }
+}
+
+export class CloudinaryDeleteError extends DomainError {
+  constructor(detail?: string) {
+    super(`Error al eliminar imagen${detail ? ': ' + detail : ''}`, 'CLOUDINARY_DELETE_ERROR');
+    this.name = 'CloudinaryDeleteError';
+  }
+}

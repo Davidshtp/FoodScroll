@@ -84,6 +84,39 @@ export class TypeOrmOrderRepository implements OrderRepository {
     return orms.map(o => OrderMapper.toDomain(o));
   }
 
+  async findDeliveredByCustomerId(customerId: string, page: number, limit: number): Promise<{ orders: Order[]; total: number }> {
+    const [orms, total] = await this.repo.findAndCount({
+      where: { customerId, status: OrderStatus.DELIVERED as any },
+      relations: ['orderItems'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { orders: orms.map(o => OrderMapper.toDomain(o)), total };
+  }
+
+  async findDeliveredByRestaurantId(restaurantId: string, page: number, limit: number): Promise<{ orders: Order[]; total: number }> {
+    const [orms, total] = await this.repo.findAndCount({
+      where: { restaurantId, status: OrderStatus.DELIVERED as any },
+      relations: ['orderItems'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { orders: orms.map(o => OrderMapper.toDomain(o)), total };
+  }
+
+  async findDeliveredByDeliveryId(deliveryId: string, page: number, limit: number): Promise<{ orders: Order[]; total: number }> {
+    const [orms, total] = await this.repo.findAndCount({
+      where: { deliveryId, status: OrderStatus.DELIVERED as any },
+      relations: ['orderItems'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { orders: orms.map(o => OrderMapper.toDomain(o)), total };
+  }
+
   async update(order: Order): Promise<Order> {
     const orm = OrderMapper.toOrm(order);
     const saved = await this.repo.save(orm);

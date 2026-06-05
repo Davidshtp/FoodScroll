@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Req,
+  Query,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { Role } from '../../config/constants';
@@ -35,6 +36,72 @@ export class OrdersProxyController {
       service: 'ORDERS',
       path: '/orders',
       body,
+    });
+    return result.data;
+  }
+
+  // ───── Obtener historial de pedidos completados (CUSTOMER) ─────
+  @Roles(Role.CUSTOMER)
+  @Get('history')
+  async getCustomerHistory(
+    @Req() req: Request,
+    @CurrentUser() user: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const query: Record<string, string> = {};
+    if (page) query.page = page;
+    if (limit) query.limit = limit;
+
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'GET',
+      service: 'ORDERS',
+      path: '/orders/history',
+      query,
+    });
+    return result.data;
+  }
+
+  // ───── Obtener historial de pedidos completados del restaurante (RESTAURANT) ─────
+  @Roles(Role.RESTAURANT)
+  @Get('restaurant/history')
+  async getRestaurantHistory(
+    @Req() req: Request,
+    @CurrentUser() user: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const query: Record<string, string> = {};
+    if (page) query.page = page;
+    if (limit) query.limit = limit;
+
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'GET',
+      service: 'ORDERS',
+      path: '/orders/restaurant/history',
+      query,
+    });
+    return result.data;
+  }
+
+  // ───── Obtener historial de entregas realizadas (DELIVERY) ─────
+  @Roles(Role.DELIVERY)
+  @Get('delivery/history')
+  async getDeliveryHistory(
+    @Req() req: Request,
+    @CurrentUser() user: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const query: Record<string, string> = {};
+    if (page) query.page = page;
+    if (limit) query.limit = limit;
+
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'GET',
+      service: 'ORDERS',
+      path: '/orders/delivery/history',
+      query,
     });
     return result.data;
   }

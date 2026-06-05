@@ -25,12 +25,16 @@ import { RejectOrderUseCase } from '../../application/usecases/order/reject-orde
 import { StartPreparingUseCase } from '../../application/usecases/order/start-preparing.usecase';
 import { MarkReadyUseCase } from '../../application/usecases/order/mark-ready.usecase';
 import { PickupOrderUseCase } from '../../application/usecases/order/pickup-order.usecase';
+import { GetCustomerOrderHistoryUseCase } from '../../application/usecases/order/get-customer-order-history.usecase';
+import { GetRestaurantOrderHistoryUseCase } from '../../application/usecases/order/get-restaurant-order-history.usecase';
+import { GetDeliveryOrderHistoryUseCase } from '../../application/usecases/order/get-delivery-order-history.usecase';
 import { CustomerIdentityPort, CUSTOMER_IDENTITY_PORT } from '../../application/ports/customer-identity.port';
 import { PublicationPort, PUBLICATION_PORT } from '../../application/ports/publication.port';
 import { RestaurantPort, RESTAURANT_PORT } from '../../application/ports/restaurant.port';
 import { RestaurantInfoPort, RESTAURANT_INFO_PORT } from '../../application/ports/restaurant-info.port';
 import { CustomerInfoPort, CUSTOMER_INFO_PORT } from '../../application/ports/customer-info.port';
 import { LocationPort, LOCATION_PORT } from '../../application/ports/location.port';
+import { DeliveryInfoPort, DELIVERY_INFO_PORT } from '../../application/ports/delivery-info.port';
 import { AddToCartUseCase } from '../../application/usecases/cart/add-to-cart.usecase';
 import { GetCartUseCase } from '../../application/usecases/cart/get-cart.usecase';
 import { UpdateCartItemUseCase } from '../../application/usecases/cart/update-cart-item.usecase';
@@ -51,6 +55,7 @@ import { RestaurantServiceClient } from '../../infrastructure/http/restaurant-se
 import { RestaurantInfoClient } from '../../infrastructure/http/restaurant-info.client';
 import { CustomerInfoClient } from '../../infrastructure/http/customer-info.client';
 import { LocationClient } from '../../infrastructure/http/location.client';
+import { DeliveryInfoClient } from '../../infrastructure/http/delivery-info.client';
 
 // Interfaces
 import { OrderController } from '../http/controllers/order.controller';
@@ -108,6 +113,9 @@ import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
     StartPreparingUseCase,
     MarkReadyUseCase,
     PickupOrderUseCase,
+    GetCustomerOrderHistoryUseCase,
+    GetRestaurantOrderHistoryUseCase,
+    GetDeliveryOrderHistoryUseCase,
     AddToCartUseCase,
     GetCartUseCase,
     UpdateCartItemUseCase,
@@ -145,6 +153,10 @@ import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
     {
       provide: LOCATION_PORT,
       useClass: LocationClient,
+    },
+    {
+      provide: DELIVERY_INFO_PORT,
+      useClass: DeliveryInfoClient,
     },
   ],
 })

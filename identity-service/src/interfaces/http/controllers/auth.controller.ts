@@ -62,6 +62,7 @@ export class AuthController {
       res.cookie(REFRESH_COOKIE_NAME, result.refreshToken, REFRESH_COOKIE_OPTIONS);
       return {
         access_token: result.accessToken,
+        refresh_token: result.refreshToken,
         user: result.user,
         welcome,
       };
@@ -96,6 +97,7 @@ export class AuthController {
       res.cookie(REFRESH_COOKIE_NAME, result.refreshToken, REFRESH_COOKIE_OPTIONS);
       return {
         access_token: result.accessToken,
+        refresh_token: result.refreshToken,
         user: result.user,
       };
     }

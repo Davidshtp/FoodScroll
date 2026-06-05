@@ -69,6 +69,7 @@ import {
 
 import {
   DeliveryProfileController,
+  DeliveryInternalController,
   LicenseController,
   VehicleController,
 } from '../http/controllers';
@@ -129,7 +130,7 @@ import { OnboardingCalculator } from '../../application/services/onboarding-calc
       VehicleTechnoOrmEntity,
     ]),
   ],
-  controllers: [DeliveryProfileController, LicenseController, VehicleController],
+  controllers: [DeliveryProfileController, DeliveryInternalController, LicenseController, VehicleController],
   providers: [
     {
       provide: DELIVERY_PROFILE_REPOSITORY,

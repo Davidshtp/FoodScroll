@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, UseInterceptors, ParseUUIDPipe, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, UseInterceptors, ParseUUIDPipe, Headers } from '@nestjs/common';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { ServiceSecretGuard } from '../guards/service-secret.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -21,8 +21,12 @@ import { RejectOrderUseCase } from '../../../application/usecases/order/reject-o
 import { StartPreparingUseCase } from '../../../application/usecases/order/start-preparing.usecase';
 import { MarkReadyUseCase } from '../../../application/usecases/order/mark-ready.usecase';
 import { PickupOrderUseCase } from '../../../application/usecases/order/pickup-order.usecase';
+import { GetCustomerOrderHistoryUseCase } from '../../../application/usecases/order/get-customer-order-history.usecase';
+import { GetRestaurantOrderHistoryUseCase } from '../../../application/usecases/order/get-restaurant-order-history.usecase';
+import { GetDeliveryOrderHistoryUseCase } from '../../../application/usecases/order/get-delivery-order-history.usecase';
 import { CreateOrderDto } from '../dtos/create-order.dto';
 import { UpdateOrderStatusDto } from '../dtos/update-order-status.dto';
+import { OrderHistoryDto } from '../dtos/order-history.dto';
 
 @Controller('orders')
 @UseInterceptors(LoggingInterceptor)
@@ -43,6 +47,9 @@ export class OrderController {
     private readonly startPreparingUseCase: StartPreparingUseCase,
     private readonly markReadyUseCase: MarkReadyUseCase,
     private readonly pickupOrderUseCase: PickupOrderUseCase,
+    private readonly getCustomerOrderHistoryUseCase: GetCustomerOrderHistoryUseCase,
+    private readonly getRestaurantOrderHistoryUseCase: GetRestaurantOrderHistoryUseCase,
+    private readonly getDeliveryOrderHistoryUseCase: GetDeliveryOrderHistoryUseCase,
   ) {}
 
   // ───── Customer endpoints ─────
@@ -227,6 +234,58 @@ export class OrderController {
       orderId,
       userId,
       role,
+    });
+  }
+
+  // ───── History endpoints ─────
+
+  @Get('history')
+  @UseGuards(JwtAuthGuard)
+  @Roles('CUSTOMER')
+  async getCustomerHistory(
+    @UserId() userId: string,
+    @Query() dto: OrderHistoryDto,
+    @Headers('Authorization') authorization: string,
+  ) {
+    return this.getCustomerOrderHistoryUseCase.execute({
+      userId,
+      page: dto.page ?? 1,
+      limit: dto.limit ?? 20,
+      authorization: authorization ?? '',
+    });
+  }
+
+  @Get('restaurant/history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('RESTAURANT')
+  async getRestaurantHistory(
+    @UserId() userId: string,
+    @UserRole() role: string,
+    @Query() dto: OrderHistoryDto,
+    @Headers('Authorization') authorization: string,
+  ) {
+    return this.getRestaurantOrderHistoryUseCase.execute({
+      userId,
+      role,
+      page: dto.page ?? 1,
+      limit: dto.limit ?? 20,
+      authorization: authorization ?? '',
+    });
+  }
+
+  @Get('delivery/history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DELIVERY')
+  async getDeliveryHistory(
+    @UserId() userId: string,
+    @UserRole() role: string,
+    @Query() dto: OrderHistoryDto,
+  ) {
+    return this.getDeliveryOrderHistoryUseCase.execute({
+      userId,
+      role,
+      page: dto.page ?? 1,
+      limit: dto.limit ?? 20,
     });
   }
 

@@ -14,6 +14,7 @@ export const IDENTITY_SERVICE_URL = 'IDENTITY_SERVICE_URL';
 export const PUBLICATIONS_SERVICE_URL = 'PUBLICATIONS_SERVICE_URL';
 export const CUSTOMER_SERVICE_URL = 'CUSTOMER_SERVICE_URL';
 export const LOCATION_SERVICE_URL = 'LOCATION_SERVICE_URL';
+export const DELIVERY_SERVICE_URL = 'DELIVERY_SERVICE_URL';
 
 // ───── Internal Communication Headers ─────
 export const HEADER_SERVICE_SECRET = 'x-service-secret';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/onboarding_navigation.dart';
 import '../../../models/restaurant_profile_model.dart';
 import '../../../services/restaurant_service.dart';
@@ -13,6 +14,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_typography.dart';
 import '../../components/custom_text_field.dart';
 import '../../components/primary_button.dart';
+import '../../components/profile_avatar_picker.dart';
 import '../../components/futuristic_background.dart';
 import '../../components/app_logo.dart';
 
@@ -31,6 +33,8 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
 
   bool _isSubmitting = false;
   Map<String, String> _errors = {};
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
 
   @override
   void dispose() {
@@ -67,6 +71,64 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
 
   String _sanitizePhone(String value) => value.replaceAll(RegExp(r'\D'), '');
 
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.white70),
+              title: const Text('Tomar foto',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.white70),
+              title: const Text('Elegir de galería',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+
+    if (picked != null && mounted) {
+      final bytes = await picked.readAsBytes();
+      final name = picked.name;
+      setState(() {
+        _selectedImageBytes = bytes;
+        _selectedImageName = name;
+      });
+    }
+  }
+
   void _onCancel() {
     OnboardingNavigation.confirmCancel(
       context,
@@ -97,10 +159,19 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
     );
 
     try {
-      await ref.read(restaurantServiceProvider).createProfile(payload);
+      final restaurantService = ref.read(restaurantServiceProvider);
+      await restaurantService.createProfile(payload);
       if (!mounted) return;
 
-      await ref.read(authServiceProvider).fetchMe();
+      if (_selectedImageBytes != null && _selectedImageName != null) {
+        try {
+          await restaurantService.updateLogo(_selectedImageBytes!, _selectedImageName!);
+        } catch (_) {}
+      }
+
+      try {
+        await ref.read(authServiceProvider).fetchMe();
+      } catch (_) {}
 
       final route = await OnboardingNavigation.resolvePostAuthRoute(
         user: null,
@@ -163,6 +234,15 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
+                Center(
+                  child: ProfileAvatarPicker(
+                    imageUrl: null,
+                    localImageBytes: _selectedImageBytes,
+                    onTap: _pickImage,
+                    size: 120,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.l),
                 CustomTextField(
                   label: 'Nombre del restaurante',
                   controller: _nameController,

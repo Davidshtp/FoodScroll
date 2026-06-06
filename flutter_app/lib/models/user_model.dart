@@ -4,6 +4,9 @@ class AuthUser {
   final String role;
   final String? appStatus;
   final String? client;
+  final bool isActive;
+  final int tokenVersion;
+  final bool isVerified;
 
   const AuthUser({
     required this.id,
@@ -11,6 +14,9 @@ class AuthUser {
     required this.role,
     this.appStatus,
     this.client,
+    this.isActive = true,
+    this.tokenVersion = 0,
+    this.isVerified = false,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
@@ -20,6 +26,9 @@ class AuthUser {
       role: (json['role'] ?? '').toString(),
       appStatus: json['appStatus']?.toString(),
       client: json['client']?.toString(),
+      isActive: json['isActive'] == true,
+      tokenVersion: (json['tokenVersion'] ?? 0) as int,
+      isVerified: json['isVerified'] == true,
     );
   }
 
@@ -30,6 +39,9 @@ class AuthUser {
       'role': role,
       if (appStatus != null) 'appStatus': appStatus,
       if (client != null) 'client': client,
+      'isActive': isActive,
+      'tokenVersion': tokenVersion,
+      'isVerified': isVerified,
     };
   }
 

@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
@@ -6,19 +7,25 @@ import '../../theme/app_typography.dart';
 
 class ProfileAvatarPicker extends StatelessWidget {
   final String? imageUrl;
+  final Uint8List? localImageBytes;
   final VoidCallback onTap;
   final double size;
+  final bool showLabel;
 
   const ProfileAvatarPicker({
     super.key,
     required this.imageUrl,
     required this.onTap,
+    this.localImageBytes,
     this.size = 120,
+    this.showLabel = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    final hasNetworkImage = imageUrl != null && imageUrl!.isNotEmpty;
+    final hasLocalImage = localImageBytes != null;
+    final hasImage = hasNetworkImage || hasLocalImage;
     final innerSize = size - 20;
 
     return GestureDetector(
@@ -47,21 +54,35 @@ class ProfileAvatarPicker extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: hasImage
-                        ? CachedNetworkImage(
-                            imageUrl: imageUrl!,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            errorWidget: (context, url, error) => const Icon(
-                              Icons.camera_alt,
-                              color: AppColors.textSecondary,
-                              size: 28,
-                            ),
-                          )
+                        ? (hasLocalImage
+                            ? Image.memory(
+                                localImageBytes!,
+                                fit: BoxFit.cover,
+                                width: innerSize,
+                                height: innerSize,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(
+                                  Icons.camera_alt,
+                                  color: AppColors.textSecondary,
+                                  size: 28,
+                                ),
+                              )
+                            : CachedNetworkImage(
+                                imageUrl: imageUrl!,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) =>
+                                    const Icon(
+                                  Icons.camera_alt,
+                                  color: AppColors.textSecondary,
+                                  size: 28,
+                                ),
+                              ))
                         : const Icon(
                             Icons.camera_alt,
                             color: AppColors.textSecondary,
@@ -72,15 +93,17 @@ class ProfileAvatarPicker extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'SUBIR IMAGEN',
-            style: AppTypography.labelSmall.copyWith(
-              color: AppColors.accent,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w700,
+          if (showLabel) ...[
+            const SizedBox(height: 8),
+            Text(
+              'SUBIR IMAGEN',
+              style: AppTypography.labelSmall.copyWith(
+                color: AppColors.accent,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

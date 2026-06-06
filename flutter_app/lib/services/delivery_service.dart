@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_exception.dart';
 import '../models/delivery_profile_model.dart';
+import '../models/vehicle_details_model.dart';
 import 'api_service.dart';
 
 final deliveryServiceProvider = Provider<DeliveryService>((ref) {
@@ -35,6 +36,49 @@ class DeliveryProfileException implements Exception {
 class DeliveryService {
   final ApiService _apiService = ApiService();
 
+  Future<DeliveryProfile> updateProfile(DeliveryProfileUpdatePayload payload) async {
+    try {
+      final response = await _apiService.patch(
+        '/delivery/profile',
+        data: payload.toJson(),
+      );
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return DeliveryProfile.fromJson(data);
+    } on ApiException catch (e) {
+      throw DeliveryProfileException.fromApi(e);
+    }
+  }
+
+  Future<VehicleDetails> fetchVehicle() async {
+    try {
+      final response = await _apiService.get('/delivery/vehicle');
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return VehicleDetails.fromJson(data);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        throw DeliveryProfileException(
+          statusCode: 404,
+          message: 'No tienes un vehículo activo',
+        );
+      }
+      throw DeliveryProfileException.fromApi(e);
+    }
+  }
+
+  Future<void> deleteVehicle() async {
+    try {
+      await _apiService.delete('/delivery/vehicle');
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        throw DeliveryProfileException(
+          statusCode: 404,
+          message: 'No tienes un vehículo activo para eliminar',
+        );
+      }
+      throw DeliveryProfileException.fromApi(e);
+    }
+  }
+
   Future<DeliveryProfile> createProfile(DeliveryProfilePayload payload) async {
     try {
       final response = await _apiService.post(
@@ -44,6 +88,30 @@ class DeliveryService {
       final data = response.data as Map<String, dynamic>? ?? {};
       await _handleAccessToken(data);
       return DeliveryProfile.fromJson(data);
+    } on ApiException catch (e) {
+      throw DeliveryProfileException.fromApi(e);
+    }
+  }
+
+  Future<String> updateAvatar(List<int> bytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _apiService.patchMultipart(
+        path: '/delivery/profile/avatar',
+        formData: formData,
+      );
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return data['avatarUrl'] as String? ?? '';
+    } on ApiException catch (e) {
+      throw DeliveryProfileException.fromApi(e);
+    }
+  }
+
+  Future<void> deleteAvatar() async {
+    try {
+      await _apiService.delete('/delivery/profile/avatar');
     } on ApiException catch (e) {
       throw DeliveryProfileException.fromApi(e);
     }
@@ -82,11 +150,12 @@ class DeliveryService {
   }
 
   Future<VehicleRegistrationResponse> registerVehicle({
-    required String imagePath,
+    required List<int> imageBytes,
+    required String imageName,
   }) async {
     try {
       final formData = FormData.fromMap({
-        'image': await MultipartFile.fromFile(imagePath),
+        'image': MultipartFile.fromBytes(imageBytes, filename: imageName),
       });
       final response = await _apiService.postMultipart(
         path: '/delivery/vehicle',
@@ -122,10 +191,13 @@ class DeliveryService {
     }
   }
 
-  Future<void> verifyLicense({required String imagePath}) async {
+  Future<void> verifyLicense({
+    required List<int> imageBytes,
+    required String imageName,
+  }) async {
     try {
       final formData = FormData.fromMap({
-        'image': await MultipartFile.fromFile(imagePath),
+        'image': MultipartFile.fromBytes(imageBytes, filename: imageName),
       });
       final response = await _apiService.postMultipart(
         path: '/delivery/license/verify',

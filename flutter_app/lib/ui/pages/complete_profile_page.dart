@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/onboarding_navigation.dart';
 import '../../models/customer_profile_model.dart';
 import '../../services/customer_service.dart';
@@ -39,6 +40,8 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   String? _gender;
   bool _isSubmitting = false;
   Map<String, String> _errors = {};
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
 
   static const List<String> _genderOptions = [
     'HOMBRE',
@@ -126,6 +129,64 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     return '$year-$month-$day';
   }
 
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.white70),
+              title: const Text('Tomar foto',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.white70),
+              title: const Text('Elegir de galería',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+
+    if (picked != null && mounted) {
+      final bytes = await picked.readAsBytes();
+      final name = picked.name;
+      setState(() {
+        _selectedImageBytes = bytes;
+        _selectedImageName = name;
+      });
+    }
+  }
+
   bool _validateForm() {
     final errors = <String, String>{};
 
@@ -202,7 +263,15 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
 
       if (!mounted) return;
 
-      await ref.read(authServiceProvider).fetchMe();
+      if (_selectedImageBytes != null && _selectedImageName != null && !widget.isEditing) {
+        try {
+          await service.updateAvatar(_selectedImageBytes!, _selectedImageName!);
+        } catch (_) {}
+      }
+
+      try {
+        await ref.read(authServiceProvider).fetchMe();
+      } catch (_) {}
 
       final route = await OnboardingNavigation.resolvePostAuthRoute(
         user: null,
@@ -241,7 +310,8 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       subtitle: 'Necesitamos algunos datos para continuar',
       avatarPicker: ProfileAvatarPicker(
         imageUrl: null,
-        onTap: () {},
+        localImageBytes: _selectedImageBytes,
+        onTap: _pickImage,
       ),
       formFields: [
         CustomTextField(

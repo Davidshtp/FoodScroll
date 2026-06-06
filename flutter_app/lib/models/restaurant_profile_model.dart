@@ -24,18 +24,44 @@ class RestaurantProfile {
   });
 
   factory RestaurantProfile.fromJson(Map<String, dynamic> json) {
+    final data = json['restaurant'] is Map<String, dynamic>
+        ? json['restaurant'] as Map<String, dynamic>
+        : json;
     return RestaurantProfile(
-      id: (json['id'] ?? '').toString(),
-      userId: (json['userId'] ?? '').toString(),
-      name: (json['name'] ?? '').toString(),
-      description: (json['description'] ?? '').toString(),
-      phone: (json['phone'] ?? '').toString(),
-      email: (json['email'] ?? '').toString(),
-      logoUrl: json['logoUrl']?.toString(),
-      bannerUrl: json['bannerUrl']?.toString(),
-      createdAt: json['createdAt']?.toString(),
-      updatedAt: json['updatedAt']?.toString(),
+      id: (data['id'] ?? '').toString(),
+      userId: (data['userId'] ?? '').toString(),
+      name: (data['name'] ?? '').toString(),
+      description: (data['description'] ?? '').toString(),
+      phone: (data['phone'] ?? '').toString(),
+      email: (data['email'] ?? '').toString(),
+      logoUrl: data['logoUrl']?.toString(),
+      bannerUrl: data['bannerUrl']?.toString(),
+      createdAt: data['createdAt']?.toString(),
+      updatedAt: data['updatedAt']?.toString(),
     );
+  }
+}
+
+class RestaurantProfileUpdatePayload {
+  final String? name;
+  final String? description;
+  final String? phone;
+  final String? email;
+
+  const RestaurantProfileUpdatePayload({
+    this.name,
+    this.description,
+    this.phone,
+    this.email,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (phone != null) 'phone': phone,
+      if (email != null) 'email': email,
+    };
   }
 }
 

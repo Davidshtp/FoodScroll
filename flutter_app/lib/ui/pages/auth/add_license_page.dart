@@ -56,8 +56,11 @@ class _AddLicensePageState extends ConsumerState<AddLicensePage> {
     setState(() => _isSubmitting = true);
 
     try {
+      final imageBytes = await _licenseImage!.readAsBytes();
+      final imageName = _licenseImage!.name;
       await ref.read(deliveryServiceProvider).verifyLicense(
-            imagePath: _licenseImage!.path,
+            imageBytes: imageBytes,
+            imageName: imageName,
           );
       if (!mounted) return;
 

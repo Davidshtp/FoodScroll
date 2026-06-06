@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_exception.dart';
 import '../models/restaurant_profile_model.dart';
@@ -34,6 +35,19 @@ class RestaurantProfileException implements Exception {
 class RestaurantService {
   final ApiService _apiService = ApiService();
 
+  Future<RestaurantProfile> updateProfile(RestaurantProfileUpdatePayload payload) async {
+    try {
+      final response = await _apiService.patch(
+        '/restaurant/profile',
+        data: payload.toJson(),
+      );
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return RestaurantProfile.fromJson(data);
+    } on ApiException catch (e) {
+      throw RestaurantProfileException.fromApi(e);
+    }
+  }
+
   Future<RestaurantProfile> createProfile(RestaurantProfilePayload payload) async {
     try {
       final response = await _apiService.post(
@@ -43,6 +57,30 @@ class RestaurantService {
       final data = response.data as Map<String, dynamic>? ?? {};
       await _handleAccessToken(data);
       return RestaurantProfile.fromJson(data);
+    } on ApiException catch (e) {
+      throw RestaurantProfileException.fromApi(e);
+    }
+  }
+
+  Future<String> updateLogo(List<int> bytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _apiService.patchMultipart(
+        path: '/restaurant/profile/logo',
+        formData: formData,
+      );
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return data['logoUrl'] as String? ?? '';
+    } on ApiException catch (e) {
+      throw RestaurantProfileException.fromApi(e);
+    }
+  }
+
+  Future<void> deleteLogo() async {
+    try {
+      await _apiService.delete('/restaurant/profile/logo');
     } on ApiException catch (e) {
       throw RestaurantProfileException.fromApi(e);
     }

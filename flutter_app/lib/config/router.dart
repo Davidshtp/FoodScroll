@@ -16,6 +16,8 @@ import '../ui/pages/auth/opening_hours_page.dart';
 import '../ui/pages/complete_profile_page.dart';
 import '../ui/pages/add_address_view.dart';
 import '../ui/pages/home_page.dart';
+import '../ui/pages/profile/verify_email_page.dart';
+import '../ui/pages/profile/verify_email_code_page.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -83,12 +85,24 @@ final router = GoRouter(
     GoRoute(path: '/home', builder: (context, state) => const HomePage()),
     GoRoute(path: '/complete-profile', builder: (context, state) => const CompleteProfilePage()),
     GoRoute(path: '/create-address', builder: (context, state) => const AddAddressView()),
+    GoRoute(path: '/profile-add-address', builder: (context, state) => const AddAddressView(isFromProfile: true)),
     GoRoute(path: '/delivery-profile', builder: (context, state) => const DeliveryProfilePage()),
     GoRoute(path: '/add-vehicle', builder: (context, state) => const AddVehiclePage()),
     GoRoute(path: '/add-license', builder: (context, state) => const AddLicensePage()),
     GoRoute(path: '/restaurant-profile', builder: (context, state) => const RestaurantProfilePage()),
     GoRoute(path: '/restaurant-address', builder: (context, state) => const RestaurantAddressPage()),
     GoRoute(path: '/opening-hours', builder: (context, state) => const OpeningHoursPage()),
+    GoRoute(
+      path: '/verify-email',
+      builder: (context, state) => const VerifyEmailPage(),
+    ),
+    GoRoute(
+      path: '/verify-email-code',
+      builder: (context, state) {
+        final email = state.extra as String? ?? '';
+        return VerifyEmailCodePage(email: email);
+      },
+    ),
   ],
 );
 

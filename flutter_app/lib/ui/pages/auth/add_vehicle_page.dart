@@ -73,8 +73,11 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
     setState(() => _isSubmitting = true);
 
     try {
+      final imageBytes = await _vehicleImage!.readAsBytes();
+      final imageName = _vehicleImage!.name;
       final result = await ref.read(deliveryServiceProvider).registerVehicle(
-            imagePath: _vehicleImage!.path,
+            imageBytes: imageBytes,
+            imageName: imageName,
           );
       if (!mounted) return;
 

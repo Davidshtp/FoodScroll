@@ -17,7 +17,6 @@ class ApiService {
             connectTimeout: const Duration(seconds: 10),
             receiveTimeout: const Duration(seconds: 10),
             headers: {
-              'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
           ),
@@ -61,6 +60,10 @@ class ApiService {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    if (options.data is FormData) {
+      options.contentType = null;
+      options.headers.remove('Content-Type');
+    }
     final path = options.path;
     if (_requiresAuth(path, options.method)) {
       final token = await _storage.getAccessToken();
@@ -175,7 +178,6 @@ class ApiService {
     Map<String, dynamic>? headers,
   }) async {
     final mergedHeaders = <String, dynamic>{
-      'Content-Type': 'multipart/form-data',
       'Accept': 'application/json',
       if (headers != null) ...headers,
     };
@@ -185,6 +187,30 @@ class ApiService {
         data: formData,
         options: Options(
           headers: mergedHeaders,
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 120),
+          sendTimeout: const Duration(seconds: 60),
+        ),
+      ),
+    );
+  }
+
+  Future<Response> patchMultipart({
+    required String path,
+    required FormData formData,
+    Map<String, dynamic>? headers,
+  }) async {
+    final mergedHeaders = <String, dynamic>{
+      'Accept': 'application/json',
+      if (headers != null) ...headers,
+    };
+    return _request(
+      () => _dio.patch(
+        path,
+        data: formData,
+        options: Options(
+          headers: mergedHeaders,
+          connectTimeout: const Duration(seconds: 30),
           receiveTimeout: const Duration(seconds: 120),
           sendTimeout: const Duration(seconds: 60),
         ),

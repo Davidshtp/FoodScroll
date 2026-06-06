@@ -19,12 +19,15 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../components/custom_dropdown_field.dart';
 import '../components/custom_text_field.dart';
+import '../components/futuristic_background.dart';
 import '../components/primary_button.dart';
 import '../layouts/add_address_layout.dart';
 import '../../state/auth_provider.dart';
 
 class AddAddressView extends ConsumerStatefulWidget {
-  const AddAddressView({super.key});
+  final bool isFromProfile;
+
+  const AddAddressView({super.key, this.isFromProfile = false});
 
   @override
   ConsumerState<AddAddressView> createState() => _AddAddressViewState();
@@ -43,6 +46,10 @@ class _AddAddressViewState extends ConsumerState<AddAddressView> {
   bool _isReverseGeocoding = false;
 
   void _onCancel() {
+    if (widget.isFromProfile) {
+      Navigator.pop(context);
+      return;
+    }
     OnboardingNavigation.confirmCancel(
       context,
       onConfirm: () async {
@@ -423,6 +430,11 @@ class _AddAddressViewState extends ConsumerState<AddAddressView> {
   }
 
   Future<void> _navigateAfterAddress() async {
+    if (widget.isFromProfile) {
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+
     final authService = ref.read(authServiceProvider);
     final customerService = ref.read(customerServiceProvider);
     final deliveryService = ref.read(deliveryServiceProvider);
@@ -473,190 +485,247 @@ class _AddAddressViewState extends ConsumerState<AddAddressView> {
     final mapHeight = AppSpacing.huge * 4;
     final latLng = _selectedLatLng ?? const LatLng(0, 0);
 
+    final formContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          child: Container(
+            height: mapHeight,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: AppColors.cardOutline.withValues(alpha: 0.4),
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+            ),
+            child: _isLoadingLocation && _selectedLatLng == null
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                    ),
+                  )
+                : FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: latLng,
+                      initialZoom: 15,
+                      onTap: (tapPosition, point) => _onMapTap(point),
+                      onPositionChanged: (position, hasGesture) {
+                        if (!hasGesture) {
+                          return;
+                        }
+                        _onMapMoved(position.center);
+                      },
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                        subdomains: const ['a', 'b', 'c', 'd'],
+                        userAgentPackageName: 'com.example.flutter_app',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          if (_selectedLatLng != null)
+                            Marker(
+                              point: _selectedLatLng!,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(
+                                Icons.location_on,
+                                color: AppColors.primary,
+                                size: 36,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+        if (_errors['location'] != null) ...[
+          const SizedBox(height: AppSpacing.s),
+          Text(
+            _errors['location']!,
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.error),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.m),
+        OutlinedButton.icon(
+          onPressed: _isLoadingLocation ? null : _moveToCurrentLocation,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.textPrimary,
+            side: BorderSide(color: AppColors.cardOutline.withValues(alpha: 0.4)),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+            ),
+          ),
+          icon: const Icon(Icons.my_location, size: 18),
+          label: Text(
+            'Usar mi ubicacion actual',
+            style: AppTypography.labelLarge.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        if (_isReverseGeocoding) ...[
+          const SizedBox(height: AppSpacing.s),
+          Text(
+            'Buscando direccion...',
+            style: AppTypography.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.l),
+        CustomTextField(
+          label: 'Alias',
+          controller: _aliasController,
+          hintText: 'Casa, trabajo, etc',
+          errorText: _errors['alias'],
+        ),
+        const SizedBox(height: AppSpacing.l),
+        CustomTextField(
+          label: 'Direccion principal',
+          controller: _mainAddressController,
+          hintText: 'Av. Principal 123',
+          errorText: _errors['mainAddress'],
+        ),
+        const SizedBox(height: AppSpacing.l),
+        CustomTextField(
+          label: 'Barrio',
+          controller: _neighborhoodController,
+          hintText: 'El Poblado',
+          errorText: _errors['neighborhood'],
+        ),
+        const SizedBox(height: AppSpacing.l),
+        CustomTextField(
+          label: 'Detalles',
+          controller: _detailsController,
+          hintText: 'Apto 502',
+        ),
+        const SizedBox(height: AppSpacing.l),
+        CustomDropdownField(
+          label: 'Departamento',
+          value: _selectedDepartment?.id,
+          items: _departments.map((item) => item.id).toList(),
+          itemLabelBuilder: (value) {
+            final match = _departments
+                .where((item) => item.id == value)
+                .toList();
+            return match.isEmpty ? value : match.first.name;
+          },
+          hintText: _isLoadingDepartments
+              ? 'Cargando departamentos...'
+              : 'Selecciona un departamento',
+          onChanged: _isLoadingDepartments
+              ? null
+              : (value) {
+                  final department = _departments
+                      .where((item) => item.id == value)
+                      .toList();
+                  if (department.isEmpty) {
+                    return;
+                  }
+                  setState(() {
+                    _selectedDepartment = department.first;
+                    _errors.remove('department');
+                  });
+                  _loadCities(department.first.id);
+                },
+        ),
+        const SizedBox(height: AppSpacing.l),
+        CustomDropdownField(
+          label: 'Ciudad',
+          value: _selectedCity?.id,
+          items: _cities.map((item) => item.id).toList(),
+          itemLabelBuilder: (value) {
+            final match = _cities.where((item) => item.id == value).toList();
+            return match.isEmpty ? value : match.first.name;
+          },
+          hintText: _isLoadingCities
+              ? 'Cargando ciudades...'
+              : 'Selecciona una ciudad',
+          errorText: _errors['city'],
+          onChanged: _isLoadingCities || _cities.isEmpty
+              ? null
+              : (value) {
+                  final city = _cities
+                      .where((item) => item.id == value)
+                      .toList();
+                  if (city.isEmpty) {
+                    return;
+                  }
+                  setState(() {
+                    _selectedCity = city.first;
+                    _errors.remove('city');
+                  });
+                },
+        ),
+      ],
+    );
+
+    if (widget.isFromProfile) {
+      return Scaffold(
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: FuturisticBackground(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 24),
+                    Text(
+                      'Añadir dirección',
+                      style: AppTypography.headlineMedium.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ingresa los datos de tu nueva dirección',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.l),
+                    formContent,
+                    const SizedBox(height: AppSpacing.xl),
+                    PrimaryButton(
+                      label: 'Guardar direccion',
+                      onPressed: _submit,
+                      isLoading: _isSaving,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return AddAddressLayout(
       title: 'Configura tu ubicacion',
       subtitle: 'Necesitamos tu direccion principal para continuar.',
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.xl),
-            child: Container(
-              height: mapHeight,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: AppColors.cardOutline.withValues(alpha: 0.4),
-                ),
-                borderRadius: BorderRadius.circular(AppRadius.xl),
-              ),
-              child: _isLoadingLocation && _selectedLatLng == null
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : FlutterMap(
-                      mapController: _mapController,
-                      options: MapOptions(
-                        initialCenter: latLng,
-                        initialZoom: 15,
-                        onTap: (tapPosition, point) => _onMapTap(point),
-                        onPositionChanged: (position, hasGesture) {
-                          if (!hasGesture) {
-                            return;
-                          }
-                          _onMapMoved(position.center);
-                        },
-                      ),
-                      children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                          subdomains: const ['a', 'b', 'c', 'd'],
-                          userAgentPackageName: 'com.example.flutter_app',
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            if (_selectedLatLng != null)
-                              Marker(
-                                point: _selectedLatLng!,
-                                width: 40,
-                                height: 40,
-                                child: const Icon(
-                                  Icons.location_on,
-                                  color: AppColors.primary,
-                                  size: 36,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-          if (_errors['location'] != null) ...[
-            const SizedBox(height: AppSpacing.s),
-            Text(
-              _errors['location']!,
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.error),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.m),
-          OutlinedButton.icon(
-            onPressed: _isLoadingLocation ? null : _moveToCurrentLocation,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textPrimary,
-              side: BorderSide(color: AppColors.cardOutline.withValues(alpha: 0.4)),
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.xl),
-              ),
-            ),
-            icon: const Icon(Icons.my_location, size: 18),
-            label: Text(
-              'Usar mi ubicacion actual',
-              style: AppTypography.labelLarge.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          if (_isReverseGeocoding) ...[
-            const SizedBox(height: AppSpacing.s),
-            Text(
-              'Buscando direccion...',
-              style: AppTypography.labelSmall.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.l),
-          CustomTextField(
-            label: 'Alias',
-            controller: _aliasController,
-            hintText: 'Casa, trabajo, etc',
-            errorText: _errors['alias'],
-          ),
-          const SizedBox(height: AppSpacing.l),
-          CustomTextField(
-            label: 'Direccion principal',
-            controller: _mainAddressController,
-            hintText: 'Av. Principal 123',
-            errorText: _errors['mainAddress'],
-          ),
-          const SizedBox(height: AppSpacing.l),
-          CustomTextField(
-            label: 'Barrio',
-            controller: _neighborhoodController,
-            hintText: 'El Poblado',
-            errorText: _errors['neighborhood'],
-          ),
-          const SizedBox(height: AppSpacing.l),
-          CustomTextField(
-            label: 'Detalles',
-            controller: _detailsController,
-            hintText: 'Apto 502',
-          ),
-          const SizedBox(height: AppSpacing.l),
-          CustomDropdownField(
-            label: 'Departamento',
-            value: _selectedDepartment?.id,
-            items: _departments.map((item) => item.id).toList(),
-            itemLabelBuilder: (value) {
-              final match = _departments
-                  .where((item) => item.id == value)
-                  .toList();
-              return match.isEmpty ? value : match.first.name;
-            },
-            hintText: _isLoadingDepartments
-                ? 'Cargando departamentos...'
-                : 'Selecciona un departamento',
-            onChanged: _isLoadingDepartments
-                ? null
-                : (value) {
-                    final department = _departments
-                        .where((item) => item.id == value)
-                        .toList();
-                    if (department.isEmpty) {
-                      return;
-                    }
-                    setState(() {
-                      _selectedDepartment = department.first;
-                      _errors.remove('department');
-                    });
-                    _loadCities(department.first.id);
-                  },
-          ),
-          const SizedBox(height: AppSpacing.l),
-          CustomDropdownField(
-            label: 'Ciudad',
-            value: _selectedCity?.id,
-            items: _cities.map((item) => item.id).toList(),
-            itemLabelBuilder: (value) {
-              final match = _cities.where((item) => item.id == value).toList();
-              return match.isEmpty ? value : match.first.name;
-            },
-            hintText: _isLoadingCities
-                ? 'Cargando ciudades...'
-                : 'Selecciona una ciudad',
-            errorText: _errors['city'],
-            onChanged: _isLoadingCities || _cities.isEmpty
-                ? null
-                : (value) {
-                    final city = _cities
-                        .where((item) => item.id == value)
-                        .toList();
-                    if (city.isEmpty) {
-                      return;
-                    }
-                    setState(() {
-                      _selectedCity = city.first;
-                      _errors.remove('city');
-                    });
-                  },
-          ),
-        ],
-      ),
+      content: formContent,
       onCancel: _onCancel,
       primaryAction: PrimaryButton(
         label: 'Guardar direccion',

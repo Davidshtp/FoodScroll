@@ -30,21 +30,59 @@ class DeliveryProfile {
   });
 
   factory DeliveryProfile.fromJson(Map<String, dynamic> json) {
+    final data = json['profile'] is Map<String, dynamic>
+        ? json['profile'] as Map<String, dynamic>
+        : json;
     return DeliveryProfile(
-      id: (json['id'] ?? '').toString(),
-      userId: (json['userId'] ?? '').toString(),
-      firstName: (json['firstName'] ?? '').toString(),
-      lastName: (json['lastName'] ?? '').toString(),
-      phone: (json['phone'] ?? '').toString(),
-      documentType: (json['documentType'] ?? '').toString(),
-      documentNumber: (json['documentNumber'] ?? '').toString(),
-      birthDate: (json['birthDate'] ?? '').toString(),
-      gender: (json['gender'] ?? '').toString(),
-      vehicleType: (json['vehicleType'] ?? '').toString(),
-      avatarUrl: json['avatarUrl']?.toString(),
-      createdAt: json['createdAt']?.toString(),
-      updatedAt: json['updatedAt']?.toString(),
+      id: (data['id'] ?? '').toString(),
+      userId: (data['userId'] ?? '').toString(),
+      firstName: (data['firstName'] ?? '').toString(),
+      lastName: (data['lastName'] ?? '').toString(),
+      phone: (data['phone'] ?? '').toString(),
+      documentType: (data['documentType'] ?? '').toString(),
+      documentNumber: (data['documentNumber'] ?? '').toString(),
+      birthDate: (data['birthDate'] ?? '').toString(),
+      gender: (data['gender'] ?? '').toString(),
+      vehicleType: (data['vehicleType'] ?? '').toString(),
+      avatarUrl: data['avatarUrl']?.toString(),
+      createdAt: data['createdAt']?.toString(),
+      updatedAt: data['updatedAt']?.toString(),
     );
+  }
+}
+
+class DeliveryProfileUpdatePayload {
+  final String? firstName;
+  final String? lastName;
+  final String? phone;
+  final String? documentType;
+  final String? documentNumber;
+  final String? birthDate;
+  final String? gender;
+  final String? vehicleType;
+
+  const DeliveryProfileUpdatePayload({
+    this.firstName,
+    this.lastName,
+    this.phone,
+    this.documentType,
+    this.documentNumber,
+    this.birthDate,
+    this.gender,
+    this.vehicleType,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (firstName != null) 'firstName': firstName,
+      if (lastName != null) 'lastName': lastName,
+      if (phone != null) 'phone': phone,
+      if (documentType != null) 'documentType': documentType,
+      if (documentNumber != null) 'documentNumber': documentNumber,
+      if (birthDate != null) 'birthDate': birthDate,
+      if (gender != null) 'gender': gender,
+      if (vehicleType != null) 'vehicleType': vehicleType,
+    };
   }
 }
 

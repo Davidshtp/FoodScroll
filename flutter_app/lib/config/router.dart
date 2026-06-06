@@ -2,6 +2,8 @@ import 'package:go_router/go_router.dart';
 import '../core/onboarding_navigation.dart';
 import '../models/user_model.dart';
 import '../services/storage_service.dart';
+import '../models/publication_model.dart';
+import '../models/order_model.dart';
 import '../ui/pages/auth/role_selection_page.dart';
 import '../ui/pages/auth/login_page.dart';
 import '../ui/pages/auth/register_page.dart';
@@ -14,6 +16,10 @@ import '../ui/pages/auth/opening_hours_page.dart';
 import '../ui/pages/complete_profile_page.dart';
 import '../ui/pages/add_address_view.dart';
 import '../ui/pages/home_page.dart';
+import '../ui/pages/restaurant/publications_list_page.dart';
+import '../ui/pages/restaurant/create_publication_page.dart';
+import '../ui/pages/restaurant/orders_list_page.dart';
+import '../ui/pages/restaurant/order_detail_page.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -25,7 +31,7 @@ final router = GoRouter(
 
     final currentPath = state.matchedLocation;
     final isOnSelectionPage = currentPath == '/';
-    final isAuthRoute = currentPath == '/login' || currentPath == '/register';
+    final isAuthRoute = currentPath == '/login' || currentPath == '/register' || currentPath == '/forgot-password' || currentPath == '/reset-password';
     final hasValidLocalSession =
         accessToken != null && accessToken.isNotEmpty && userData != null;
 
@@ -82,6 +88,33 @@ final router = GoRouter(
     GoRoute(path: '/restaurant-profile', builder: (context, state) => const RestaurantProfilePage()),
     GoRoute(path: '/restaurant-address', builder: (context, state) => const RestaurantAddressPage()),
     GoRoute(path: '/opening-hours', builder: (context, state) => const OpeningHoursPage()),
+    GoRoute(
+      path: '/restaurant/publications',
+      builder: (context, state) => const PublicationsListPage(),
+    ),
+    GoRoute(
+      path: '/restaurant/publications/create',
+      builder: (context, state) => const CreatePublicationPage(),
+    ),
+    GoRoute(
+      path: '/restaurant/publications/edit',
+      builder: (context, state) {
+        final pub = state.extra as RestaurantPublication?;
+        return CreatePublicationPage(publication: pub);
+      },
+    ),
+    GoRoute(
+      path: '/restaurant/orders',
+      builder: (context, state) => const OrdersListPage(),
+    ),
+    GoRoute(
+      path: '/restaurant/orders/:id',
+      builder: (context, state) {
+        final order = state.extra as RestaurantOrder?;
+        if (order != null) return OrderDetailPage(order: order);
+        return const OrdersListPage();
+      },
+    ),
   ],
 );
 

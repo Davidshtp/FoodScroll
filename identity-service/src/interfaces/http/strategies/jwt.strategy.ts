@@ -47,6 +47,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       client: payload.client,
       appStatus: user.appStatus,
       isActive: user.isActive,
+      isVerified: user.isVerified,
       tokenVersion: user.tokenVersion,
     };
   }

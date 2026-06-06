@@ -124,7 +124,7 @@ export class DeliveryProxyController {
     }
 
     const formData = new FormData();
-    formData.append('image', new Blob([file.buffer], { type: file.mimetype }), file.originalname);
+    formData.append('image', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     
     if (body.plate) formData.append('plate', body.plate);
     if (body.documentType) formData.append('documentType', body.documentType);
@@ -213,11 +213,7 @@ export class DeliveryProxyController {
 
     const formData = new FormData();
     if (file) {
-      formData.append(
-        'image',
-        new Blob([file.buffer], { type: file.mimetype }),
-        file.originalname,
-      );
+      formData.append('image', file.buffer, { filename: file.originalname, contentType: file.mimetype });
     }
     if (body.imageBase64) formData.append('imageBase64', body.imageBase64);
     if (body.documentType) formData.append('documentType', body.documentType);

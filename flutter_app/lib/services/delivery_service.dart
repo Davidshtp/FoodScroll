@@ -67,7 +67,9 @@ class DeliveryService {
 
   Future<void> deleteVehicle() async {
     try {
-      await _apiService.delete('/delivery/vehicle');
+      final response = await _apiService.delete('/delivery/vehicle');
+      final data = response.data as Map<String, dynamic>?;
+      await _handleAccessToken(data);
     } on ApiException catch (e) {
       if (e.statusCode == 404) {
         throw DeliveryProfileException(

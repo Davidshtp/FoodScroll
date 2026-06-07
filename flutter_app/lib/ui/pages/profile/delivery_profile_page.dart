@@ -495,9 +495,9 @@ class _DeliveryProfilePageState extends ConsumerState<DeliveryProfilePage> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                Text(fullName, style: AppTypography.titleLarge),
+                Text(fullName, style: AppTypography.titleLarge, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
                 const SizedBox(height: AppSpacing.xs),
-                Text(_authUser?.email ?? '', style: AppTypography.bodyMedium.copyWith(color: AppColors.textTertiary)),
+                Text(_authUser?.email ?? '', style: AppTypography.bodyMedium.copyWith(color: AppColors.textTertiary), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -611,7 +611,7 @@ class _InfoRow extends StatelessWidget {
                     children: [
                       Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.textTertiary)),
                       const SizedBox(height: 2),
-                      Text(value.isNotEmpty ? value : '—', style: AppTypography.bodyLarge),
+                      Text(value.isNotEmpty ? value : '—', style: AppTypography.bodyLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -660,7 +660,7 @@ class _VehicleCard extends StatelessWidget {
             children: [
               const Icon(Icons.two_wheeler, color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.s),
-              Expanded(child: Text('${vehicle.brand} ${vehicle.line}', style: AppTypography.titleMedium.copyWith(fontSize: 15))),
+              Expanded(child: Text('${vehicle.brand} ${vehicle.line}', style: AppTypography.titleMedium.copyWith(fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis)),
               if (isDeleting)
                 const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
               else
@@ -702,7 +702,7 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(width: 100, child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.textTertiary))),
-          Expanded(child: Text(value, style: AppTypography.bodyMedium)),
+          Expanded(child: Text(value, style: AppTypography.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis)),
         ],
       ),
     );

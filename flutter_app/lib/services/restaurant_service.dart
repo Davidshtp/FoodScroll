@@ -118,6 +118,38 @@ class RestaurantService {
     }
   }
 
+  Future<RestaurantAddress?> fetchAddress() async {
+    try {
+      final response = await _apiService.get('/restaurant/address');
+      final data = response.data;
+      if (data is Map<String, dynamic> && data['address'] is Map<String, dynamic>) {
+        return RestaurantAddress.fromJson(data['address'] as Map<String, dynamic>);
+      }
+      return null;
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null;
+      throw RestaurantProfileException.fromApi(e);
+    }
+  }
+
+  Future<List<OpeningHour>> fetchOpeningHours() async {
+    try {
+      final response = await _apiService.get('/restaurant/opening-hours');
+      final data = response.data as Map<String, dynamic>? ?? {};
+      final hoursRaw = data['hours'];
+      if (hoursRaw is List) {
+        return hoursRaw
+            .whereType<Map<String, dynamic>>()
+            .map(OpeningHour.fromJson)
+            .toList();
+      }
+      return [];
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return [];
+      throw RestaurantProfileException.fromApi(e);
+    }
+  }
+
   Future<RestaurantAddress> updateAddress(RestaurantAddressPayload payload) async {
     try {
       final response = await _apiService.put(

@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/onboarding_navigation.dart';
 import '../../../services/delivery_service.dart';
 import '../../../state/auth_provider.dart';
 import '../../../theme/app_colors.dart';
@@ -34,16 +33,7 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
   bool _isSubmitting = false;
 
   void _onCancel() {
-    OnboardingNavigation.confirmCancel(
-      context,
-      onConfirm: () async {
-        await ref.read(authControllerProvider.notifier).logout();
-        if (!mounted) return;
-        await ref.read(authServiceProvider).clearClientType();
-        if (!mounted) return;
-        context.go('/');
-      },
-    );
+    if (mounted) context.go('/home');
   }
 
   static const List<String> _documentTypeOptions = ['CC', 'CE', 'PASSPORT'];
@@ -75,7 +65,7 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
     try {
       final imageBytes = await _vehicleImage!.readAsBytes();
       final imageName = _vehicleImage!.name;
-      final result = await ref.read(deliveryServiceProvider).registerVehicle(
+      await ref.read(deliveryServiceProvider).registerVehicle(
             imageBytes: imageBytes,
             imageName: imageName,
           );
@@ -84,13 +74,8 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
       await ref.read(authServiceProvider).fetchMe();
 
       if (mounted) {
-        if (result.status.canWork) {
-          _showSuccess('Vehículo registrado correctamente');
-          context.go('/home');
-        } else {
-          _showSuccess(result.message);
-          context.go('/add-license');
-        }
+        _showSuccess('Vehículo registrado correctamente');
+        context.go('/home');
       }
     } on DeliveryProfileException catch (e) {
       if (mounted) _showError(e.message);
@@ -123,7 +108,7 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
     setState(() => _isSubmitting = true);
 
     try {
-      final result = await ref.read(deliveryServiceProvider).registerVehicleManual(
+      await ref.read(deliveryServiceProvider).registerVehicleManual(
             plate: _plateController.text.trim().toUpperCase(),
             documentType: _documentType!,
             documentNumber: _documentNumberController.text.trim(),
@@ -133,13 +118,8 @@ class _AddVehiclePageState extends ConsumerState<AddVehiclePage> {
       await ref.read(authServiceProvider).fetchMe();
 
       if (mounted) {
-        if (result.status.canWork) {
-          _showSuccess('Vehículo registrado correctamente');
-          context.go('/home');
-        } else {
-          _showSuccess(result.message);
-          context.go('/add-license');
-        }
+        _showSuccess('Vehículo registrado correctamente');
+        context.go('/home');
       }
     } on DeliveryProfileException catch (e) {
       if (mounted) _showError(e.message);

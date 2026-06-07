@@ -10,6 +10,10 @@ import '../../theme/app_typography.dart';
 import 'profile/customer_profile_page.dart';
 import 'profile/delivery_profile_page.dart';
 import 'profile/restaurant_profile_page.dart';
+import 'profile/restaurant_settings_page.dart';
+import 'restaurant/restaurant_home_page.dart';
+import 'restaurant/publications_list_page.dart';
+import 'restaurant/create_publication_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -21,6 +25,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
   String _role = 'customer';
+  int _profileRefreshKey = 0;
 
   List<CustomerAddress> _addresses = [];
   CustomerAddress? _selectedAddress;
@@ -124,11 +129,11 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   // --- Tabs for Restaurant ---
   List<Widget> get _restaurantTabs => [
-    const _PlaceholderTab(icon: Icons.inventory_2_outlined, label: 'Dashboard'),
-    const _PlaceholderTab(icon: Icons.menu_book_outlined, label: 'Menú'),
-    const _PlaceholderTab(icon: Icons.add_circle, label: 'Añadir', isAddButton: true),
+    const RestaurantHomePage(),
+    const PublicationsListPage(),
+    const CreatePublicationPage(),
     const _PlaceholderTab(icon: Icons.notifications_outlined, label: 'Notificaciones'),
-    const RestaurantProfilePage(),
+    RestaurantProfilePage(key: ValueKey('profile_$_profileRefreshKey')),
   ];
 
   @override
@@ -277,7 +282,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       case 'restaurant':
         rightWidget = IconButton(
           icon: const Icon(Icons.settings_outlined, color: AppColors.textPrimary),
-          onPressed: () {},
+          onPressed: () async {
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => const RestaurantSettingsPage()));
+            if (mounted) setState(() => _profileRefreshKey++);
+          },
         );
         break;
       default:
@@ -371,12 +379,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 class _PlaceholderTab extends StatelessWidget {
   final IconData icon;
   final String label;
-  final bool isAddButton;
 
   const _PlaceholderTab({
     required this.icon,
     required this.label,
-    this.isAddButton = false,
   });
 
   @override

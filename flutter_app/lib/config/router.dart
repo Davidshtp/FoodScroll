@@ -2,22 +2,32 @@ import 'package:go_router/go_router.dart';
 import '../core/onboarding_navigation.dart';
 import '../models/user_model.dart';
 import '../services/storage_service.dart';
+import '../models/publication_model.dart';
+import '../models/order_model.dart';
 import '../ui/pages/auth/role_selection_page.dart';
 import '../ui/pages/auth/login_page.dart';
 import '../ui/pages/auth/register_page.dart';
 import '../ui/pages/auth/forgot_password_page.dart';
 import '../ui/pages/auth/reset_password_page.dart';
-import '../ui/pages/auth/delivery_profile_page.dart';
+import '../ui/pages/auth/delivery_profile_page.dart' as onboarding;
 import '../ui/pages/auth/add_vehicle_page.dart';
 import '../ui/pages/auth/add_license_page.dart';
-import '../ui/pages/auth/restaurant_profile_page.dart';
+import '../ui/pages/auth/restaurant_profile_page.dart' as onboarding_rest;
 import '../ui/pages/auth/restaurant_address_page.dart';
 import '../ui/pages/auth/opening_hours_page.dart';
 import '../ui/pages/complete_profile_page.dart';
 import '../ui/pages/add_address_view.dart';
 import '../ui/pages/home_page.dart';
+import '../ui/pages/profile/customer_profile_page.dart';
+import '../ui/pages/profile/delivery_profile_page.dart';
+import '../ui/pages/profile/restaurant_profile_page.dart';
 import '../ui/pages/profile/verify_email_page.dart';
 import '../ui/pages/profile/verify_email_code_page.dart';
+import '../ui/pages/restaurant/publications_list_page.dart';
+import '../ui/pages/restaurant/create_publication_page.dart';
+import '../ui/pages/restaurant/orders_list_page.dart';
+import '../ui/pages/restaurant/order_detail_page.dart';
+
 
 final router = GoRouter(
   initialLocation: '/',
@@ -49,7 +59,7 @@ final router = GoRouter(
 
     final onboardingRoutes = [
       '/complete-profile', '/create-address',
-      '/delivery-profile', '/add-vehicle', '/add-license',
+      '/delivery-profile',
       '/restaurant-profile', '/restaurant-address', '/opening-hours',
     ];
     final isOnboardingRoute = onboardingRoutes.contains(currentPath);
@@ -82,16 +92,71 @@ final router = GoRouter(
       final email = state.extra as String? ?? '';
       return ResetPasswordPage(email: email);
     }),
+    GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordPage()),
+    GoRoute(path: '/reset-password', builder: (context, state) {
+      final email = state.extra as String? ?? '';
+      return ResetPasswordPage(email: email);
+    }),
     GoRoute(path: '/home', builder: (context, state) => const HomePage()),
     GoRoute(path: '/complete-profile', builder: (context, state) => const CompleteProfilePage()),
     GoRoute(path: '/create-address', builder: (context, state) => const AddAddressView()),
     GoRoute(path: '/profile-add-address', builder: (context, state) => const AddAddressView(isFromProfile: true)),
-    GoRoute(path: '/delivery-profile', builder: (context, state) => const DeliveryProfilePage()),
+    GoRoute(path: '/delivery-profile', builder: (context, state) => const onboarding.DeliveryProfilePage()),
     GoRoute(path: '/add-vehicle', builder: (context, state) => const AddVehiclePage()),
     GoRoute(path: '/add-license', builder: (context, state) => const AddLicensePage()),
-    GoRoute(path: '/restaurant-profile', builder: (context, state) => const RestaurantProfilePage()),
+    GoRoute(path: '/restaurant-profile', builder: (context, state) => const onboarding_rest.RestaurantProfilePage()),
     GoRoute(path: '/restaurant-address', builder: (context, state) => const RestaurantAddressPage()),
     GoRoute(path: '/opening-hours', builder: (context, state) => const OpeningHoursPage()),
+    GoRoute(
+      path: '/verify-email',
+      builder: (context, state) => const VerifyEmailPage(),
+    ),
+    GoRoute(
+      path: '/verify-email-code',
+      builder: (context, state) {
+        final email = state.extra as String? ?? '';
+        return VerifyEmailCodePage(email: email);
+      },
+    ),
+    GoRoute(
+      path: '/restaurant/publications',
+      builder: (context, state) => const PublicationsListPage(),
+    ),
+    GoRoute(
+      path: '/restaurant/publications/create',
+      builder: (context, state) => const CreatePublicationPage(),
+    ),
+    GoRoute(
+      path: '/restaurant/publications/edit',
+      builder: (context, state) {
+        final pub = state.extra as RestaurantPublication?;
+        return CreatePublicationPage(publication: pub);
+      },
+    ),
+    GoRoute(
+      path: '/restaurant/orders',
+      builder: (context, state) => const OrdersListPage(),
+    ),
+    GoRoute(
+      path: '/restaurant/orders/:id',
+      builder: (context, state) {
+        final order = state.extra as RestaurantOrder?;
+        if (order != null) return OrderDetailPage(order: order);
+        return const OrdersListPage();
+      },
+    ),
+    GoRoute(
+      path: '/profile/customer',
+      builder: (context, state) => const CustomerProfilePage(),
+    ),
+    GoRoute(
+      path: '/profile/delivery',
+      builder: (context, state) => const DeliveryProfilePage(),
+    ),
+    GoRoute(
+      path: '/profile/restaurant',
+      builder: (context, state) => const RestaurantProfilePage(),
+    ),
     GoRoute(
       path: '/verify-email',
       builder: (context, state) => const VerifyEmailPage(),

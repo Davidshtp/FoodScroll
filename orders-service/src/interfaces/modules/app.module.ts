@@ -43,6 +43,8 @@ import { ClearCartUseCase } from '../../application/usecases/cart/clear-cart.use
 import { CheckoutCartUseCase } from '../../application/usecases/cart/checkout-cart.usecase';
 
 // Infrastructure
+import { RedisModule } from '../../infrastructure/redis/redis.module';
+import { RedisService } from '../../infrastructure/redis/redis.service';
 import { TypeOrmOrderRepository } from '../../infrastructure/persistence/typeorm/repositories/typeorm-order.repository';
 import { TypeOrmCartRepository } from '../../infrastructure/persistence/typeorm/repositories/typeorm-cart.repository';
 import { OrderOrmEntity } from '../../infrastructure/persistence/typeorm/entities/order.orm-entity';
@@ -60,6 +62,7 @@ import { DeliveryInfoClient } from '../../infrastructure/http/delivery-info.clie
 // Interfaces
 import { OrderController } from '../http/controllers/order.controller';
 import { CartController } from '../http/controllers/cart.controller';
+import { TrackController } from '../http/controllers/track.controller';
 import { OrderGateway } from '../http/gateways/order.gateway';
 import { JwtStrategy } from '../http/strategies/jwt.strategy';
 import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
@@ -89,8 +92,9 @@ import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
       }),
       inject: [ConfigService],
     }),
+    RedisModule,
   ],
-  controllers: [OrderController, CartController],
+  controllers: [OrderController, CartController, TrackController],
   providers: [
     {
       provide: APP_FILTER,
@@ -107,6 +111,7 @@ import { DomainExceptionFilter } from '../http/filters/domain-exception.filter';
     GetAvailableOrdersUseCase,
     AcceptDeliveryUseCase,
     DeliverOrderUseCase,
+    RedisService,
     GetMyDeliveriesUseCase,
     ConfirmOrderUseCase,
     RejectOrderUseCase,

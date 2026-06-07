@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Order } from '../../../domain/entities/order.entity';
 import { OrderStatus } from '../../../domain/enums/order-status.enum';
 import { OrderRepository, ORDER_REPOSITORY } from '../../../domain/repositories/order.repository';
@@ -9,6 +9,7 @@ import {
   OrderNotOutForDeliveryError,
 } from '../../../domain/errors/domain.errors';
 import { OrderGateway } from '../../../interfaces/http/gateways/order.gateway';
+import { RedisService } from '../../../infrastructure/redis/redis.service';
 
 export interface DeliverOrderInput {
   orderId: string;
@@ -22,9 +23,12 @@ export interface DeliverOrderOutput {
 
 @Injectable()
 export class DeliverOrderUseCase {
+  private readonly logger = new Logger(DeliverOrderUseCase.name);
+
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: OrderRepository,
     private readonly orderGateway: OrderGateway,
+    private readonly redisService: RedisService,
   ) {}
 
   async execute(input: DeliverOrderInput): Promise<DeliverOrderOutput> {
@@ -49,6 +53,13 @@ export class DeliverOrderUseCase {
     const savedOrder = await this.orderRepo.update(updatedOrder);
 
     this.orderGateway.emitOrderStatusUpdate(savedOrder.id, savedOrder);
+
+    try {
+      await this.redisService.del(`delivery:track:${savedOrder.id}`);
+      await this.redisService.del(`delivery:lastpos:${savedOrder.id}`);
+    } catch (error) {
+      this.logger.error(`Error cleaning Redis tracking data for order ${savedOrder.id}: ${error.message}`);
+    }
 
     return { order: savedOrder };
   }

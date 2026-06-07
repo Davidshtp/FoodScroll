@@ -16,5 +16,9 @@ export const CUSTOMER_SERVICE_URL = 'CUSTOMER_SERVICE_URL';
 export const LOCATION_SERVICE_URL = 'LOCATION_SERVICE_URL';
 export const DELIVERY_SERVICE_URL = 'DELIVERY_SERVICE_URL';
 
+// Redis
+export const REDIS_HOST = 'REDIS_HOST';
+export const REDIS_PORT = 'REDIS_PORT';
+
 // ───── Internal Communication Headers ─────
 export const HEADER_SERVICE_SECRET = 'x-service-secret';

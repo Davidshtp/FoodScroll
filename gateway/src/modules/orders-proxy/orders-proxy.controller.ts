@@ -265,6 +265,21 @@ export class OrdersProxyController {
     return result.data;
   }
 
+  // ───── Tracking de delivery ─────
+  @Get(':orderId/track')
+  async getTrack(
+    @Param('orderId') orderId: string,
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'GET',
+      service: 'ORDERS',
+      path: `/orders/${orderId}/track`,
+    });
+    return result.data;
+  }
+
   // ───── Obtener orden específica (todos los roles) ─────
   @Get(':orderId')
   async getOrder(

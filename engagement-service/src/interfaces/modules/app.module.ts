@@ -32,6 +32,7 @@ import { COMMENT_REPOSITORY } from '../../domain/repositories/comment.repository
 import { ToggleLikeUseCase } from '../../application/usecases/likes/toggle-like.usecase';
 import { GetLikeCountUseCase } from '../../application/usecases/likes/get-like-count.usecase';
 import { HasUserLikedUseCase } from '../../application/usecases/likes/has-user-liked.usecase';
+import { GetUserLikedPublicationsUseCase } from '../../application/usecases/likes/get-user-liked-publications.usecase';
 import { FollowUserUseCase } from '../../application/usecases/followers/follow-user.usecase';
 import { UnfollowUserUseCase } from '../../application/usecases/followers/unfollow-user.usecase';
 import { GetFollowersUseCase } from '../../application/usecases/followers/get-followers.usecase';
@@ -100,6 +101,7 @@ import { JwtStrategy } from '../http/strategies';
     ToggleLikeUseCase,
     GetLikeCountUseCase,
     HasUserLikedUseCase,
+    GetUserLikedPublicationsUseCase,
     FollowUserUseCase,
     UnfollowUserUseCase,
     GetFollowersUseCase,
@@ -115,11 +117,11 @@ import { JwtStrategy } from '../http/strategies';
     // Global Guards
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
+      useClass: ServiceSecretGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: ServiceSecretGuard,
+      useClass: JwtAuthGuard,
     },
 
     // Global Interceptors

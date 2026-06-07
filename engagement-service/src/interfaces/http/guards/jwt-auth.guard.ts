@@ -4,6 +4,15 @@ import { AuthGuard } from '@nestjs/passport';
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   canActivate(context: ExecutionContext) {
+    const request = context.switchToHttp().getRequest();
+    if (request._internalRequest && !request.headers.authorization) {
+      request.user = {
+        id: request.headers['x-user-id'],
+        role: request.headers['x-user-role'] || 'CUSTOMER',
+        appStatus: request.headers['x-user-appstatus'] ?? null,
+      };
+      return true;
+    }
     return super.canActivate(context);
   }
 }

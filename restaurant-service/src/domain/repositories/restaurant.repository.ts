@@ -8,6 +8,7 @@ export interface RestaurantRepository {
   save(restaurant: Restaurant): Promise<Restaurant>;
   findById(id: string): Promise<Restaurant | null>;
   findByUserId(userId: string): Promise<Restaurant | null>;
+  findByUserIds(userIds: string[]): Promise<Restaurant[]>;
   findDeletedByUserId(userId: string): Promise<Restaurant | null>;
   restore(restaurant: Restaurant): Promise<Restaurant>;
   deleteById(id: string): Promise<void>;
@@ -19,4 +20,7 @@ export interface RestaurantRepository {
   upsertOpeningHours(hours: RestaurantOpeningHours[]): Promise<RestaurantOpeningHours[]>;
   findOpeningHoursByRestaurantId(restaurantId: string): Promise<RestaurantOpeningHours[]>;
   deleteOpeningHoursByRestaurantId(restaurantId: string): Promise<void>;
+
+  findAllWithAddresses(): Promise<{ restaurant: Restaurant; address: RestaurantAddress }[]>;
+  findAddressesByRestaurantIds(ids: string[]): Promise<Map<string, { latitude: number; longitude: number; cityId: string }>>;
 }

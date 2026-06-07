@@ -3,3 +3,4 @@ export * from './get-publication.usecase';
 export * from './get-publications-by-restaurant.usecase';
 export * from './update-publication.usecase';
 export * from './delete-publication.usecase';
+export * from './get-feed.usecase';

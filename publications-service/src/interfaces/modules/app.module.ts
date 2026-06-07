@@ -16,6 +16,10 @@ import {
 
 import { HttpModule } from '@nestjs/axios';
 import { RestaurantClientService } from '../../infrastructure/http/restaurant-client.service';
+import { RestaurantInfoClient } from '../../infrastructure/http/restaurant-info-client.service';
+import { RestaurantNearbyClient } from '../../infrastructure/http/restaurant-nearby-client.service';
+import { EngagementClient } from '../../infrastructure/http/engagement-client.service';
+import { LocationClient } from '../../infrastructure/http/location-client.service';
 
 import { PublicationMongoRepository } from '../../infrastructure/persistence/mongodb/publication.repository';
 import { PublicationSchema } from '../../infrastructure/database/publication.schema';
@@ -27,10 +31,12 @@ import { GetPublicationUseCase } from '../../application/usecases/get-publicatio
 import { GetPublicationsByRestaurantUseCase } from '../../application/usecases/get-publications-by-restaurant.usecase';
 import { UpdatePublicationUseCase } from '../../application/usecases/update-publication.usecase';
 import { DeletePublicationUseCase } from '../../application/usecases/delete-publication.usecase';
+import { GetFeedUseCase } from '../../application/usecases/get-feed.usecase';
 
 import { CloudinaryService } from '../../infrastructure/cloudinary/cloudinary.service';
 
 import { PublicationController } from '../http/controllers/publication.controller';
+import { FeedController } from '../http/controllers/feed.controller';
 
 import { ServiceSecretGuard, JwtAuthGuard } from '../http/guards';
 import { LoggingInterceptor } from '../../interceptors/logging.interceptor';
@@ -73,6 +79,7 @@ import { JwtStrategy } from '../http/strategies';
   ],
   controllers: [
     PublicationController,
+    FeedController,
   ],
   providers: [
     {
@@ -84,16 +91,21 @@ import { JwtStrategy } from '../http/strategies';
     GetPublicationsByRestaurantUseCase,
     UpdatePublicationUseCase,
     DeletePublicationUseCase,
+    GetFeedUseCase,
     RestaurantClientService,
+    RestaurantInfoClient,
+    RestaurantNearbyClient,
+    EngagementClient,
+    LocationClient,
     CloudinaryService,
     JwtStrategy,
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
+      useClass: ServiceSecretGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: ServiceSecretGuard,
+      useClass: JwtAuthGuard,
     },
     {
       provide: APP_INTERCEPTOR,
@@ -101,11 +113,11 @@ import { JwtStrategy } from '../http/strategies';
     },
     {
       provide: APP_FILTER,
-      useClass: AllExceptionsFilter,
+      useClass: DomainExceptionFilter,
     },
     {
       provide: APP_FILTER,
-      useClass: DomainExceptionFilter,
+      useClass: AllExceptionsFilter,
     },
   ],
 })

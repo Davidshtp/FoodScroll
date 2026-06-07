@@ -21,6 +21,7 @@ import { DeliveryProxyModule } from './modules/delivery-proxy/delivery-proxy.mod
 import { RestaurantProxyModule } from './modules/restaurant-proxy/restaurant-proxy.module';
 import { EngagementProxyModule } from './modules/engagement-proxy/engagement-proxy.module';
 import { OrdersProxyModule } from './modules/orders-proxy/orders-proxy.module';
+import { PublicationsProxyModule } from './modules/publications-proxy/publications-proxy.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { OrdersProxyModule } from './modules/orders-proxy/orders-proxy.module';
     RestaurantProxyModule,
     EngagementProxyModule,
     OrdersProxyModule,
+    PublicationsProxyModule,
     HealthModule,
   ],
   providers: [

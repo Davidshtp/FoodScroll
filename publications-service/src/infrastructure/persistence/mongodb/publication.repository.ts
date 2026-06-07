@@ -87,4 +87,31 @@ export class PublicationMongoRepository implements PublicationRepositoryPort {
     const documents = await this.publicationModel.find({ restaurantId, deletedAt: null } as any).exec();
     return documents.map(doc => this.toDomain(doc));
   }
+
+  async findByRestaurantIds(restaurantIds: string[]): Promise<Publication[]> {
+    if (restaurantIds.length === 0) return [];
+    const documents = await this.publicationModel.find({ restaurantId: { $in: restaurantIds }, deletedAt: null } as any).exec();
+    return documents.map(doc => this.toDomain(doc));
+  }
+
+  async findByIds(ids: string[]): Promise<Publication[]> {
+    if (ids.length === 0) return [];
+    const documents = await this.publicationModel.find({ _id: { $in: ids }, deletedAt: null } as any).exec();
+    return documents.map(doc => this.toDomain(doc));
+  }
+
+  async findRecentActive(since: Date, limit: number, excludeRestaurantIds?: string[]): Promise<Publication[]> {
+    const filter: any = {
+      deletedAt: null,
+      publishedAt: { $gte: since },
+    };
+    if (excludeRestaurantIds && excludeRestaurantIds.length > 0) {
+      filter.restaurantId = { $nin: excludeRestaurantIds };
+    }
+    const documents = await this.publicationModel.find(filter)
+      .sort({ publishedAt: -1 })
+      .limit(limit)
+      .exec();
+    return documents.map(doc => this.toDomain(doc));
+  }
 }

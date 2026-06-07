@@ -14,38 +14,98 @@ export class Neo4jFollowerRepository implements FollowerRepository {
   ) {}
 
   async follow(followerId: string, followedId: string): Promise<boolean> {
-    const exists = await this.exists(followerId, followedId);
-    if (exists) return false;
+    const created = await this.neo4j.executeWrite(async (tx) => {
+      const result = await tx.run(
+        'OPTIONAL MATCH (follower:User {id: $followerId})-[r:FOLLOWS]->(followed:User {id: $followedId}) RETURN r IS NOT NULL AS alreadyExists',
+        { followerId, followedId },
+      );
+      const exists = result.records?.[0]?.get('alreadyExists') ?? false;
+      if (exists) return false;
 
-    await this.neo4j.run(
-      `MERGE (follower:User {id: $followerId})
-       MERGE (followed:User {id: $followedId})
-       MERGE (follower)-[r:FOLLOWS]->(followed)
-       SET r.createdAt = datetime()`,
-      { followerId, followedId },
+      await tx.run(
+        `MERGE (follower:User {id: $followerId})
+         MERGE (followed:User {id: $followedId})
+         MERGE (follower)-[r:FOLLOWS]->(followed)
+         SET r.createdAt = datetime()`,
+        { followerId, followedId },
+      );
+      return true;
+    });
+
+    if (!created) return false;
+
+    const luaScript = `
+      local followersKey = KEYS[1]
+      local followingKey = KEYS[2]
+      local followersCountKey = KEYS[3]
+      local followingCountKey = KEYS[4]
+      local followerId = ARGV[1]
+      local followedId = ARGV[2]
+      local exists = redis.call('SISMEMBER', followersKey, followerId)
+      if exists == 0 then
+        redis.call('SADD', followersKey, followerId)
+        redis.call('SADD', followingKey, followedId)
+        redis.call('INCR', followersCountKey)
+        redis.call('INCR', followingCountKey)
+      end
+      return 1
+    `;
+    await this.redis.eval(luaScript,
+      [
+        `user:${followedId}:followers`,
+        `user:${followerId}:following`,
+        `user:${followedId}:followers:count`,
+        `user:${followerId}:following:count`,
+      ],
+      [followerId, followedId],
     );
-
-    await this.redis.sadd(`user:${followedId}:followers`, followerId);
-    await this.redis.sadd(`user:${followerId}:following`, followedId);
-    await this.redis.incr(`user:${followedId}:followers:count`);
-    await this.redis.incr(`user:${followerId}:following:count`);
 
     return true;
   }
 
   async unfollow(followerId: string, followedId: string): Promise<boolean> {
-    const exists = await this.exists(followerId, followedId);
-    if (!exists) return false;
+    const deleted = await this.neo4j.executeWrite(async (tx) => {
+      const result = await tx.run(
+        'OPTIONAL MATCH (f:User {id: $followerId})-[r:FOLLOWS]->(s:User {id: $followedId}) RETURN r IS NOT NULL AS exists',
+        { followerId, followedId },
+      );
+      const relExists = result.records?.[0]?.get('exists') ?? false;
+      if (!relExists) return false;
 
-    await this.neo4j.run(
-      'MATCH (f:User {id: $followerId})-[r:FOLLOWS]->(s:User {id: $followedId}) DELETE r',
-      { followerId, followedId },
+      await tx.run(
+        'MATCH (f:User {id: $followerId})-[r:FOLLOWS]->(s:User {id: $followedId}) DELETE r',
+        { followerId, followedId },
+      );
+      return true;
+    });
+
+    if (!deleted) return false;
+
+    const luaScript = `
+      local followersKey = KEYS[1]
+      local followingKey = KEYS[2]
+      local followersCountKey = KEYS[3]
+      local followingCountKey = KEYS[4]
+      local followerId = ARGV[1]
+      local followedId = ARGV[2]
+      local exists = redis.call('SISMEMBER', followersKey, followerId)
+      if exists == 1 then
+        redis.call('SREM', followersKey, followerId)
+        redis.call('SREM', followingKey, followedId)
+        redis.call('DECR', followersCountKey)
+        redis.call('DECR', followingCountKey)
+      end
+      return 1
+    `;
+    await this.redis.eval(luaScript,
+      [
+        `user:${followedId}:followers`,
+        `user:${followerId}:following`,
+        `user:${followedId}:followers:count`,
+        `user:${followerId}:following:count`,
+      ],
+      [followerId, followedId],
     );
-
-    await this.redis.srem(`user:${followedId}:followers`, followerId);
-    await this.redis.srem(`user:${followerId}:following`, followedId);
-    await this.redis.decr(`user:${followedId}:followers:count`);
-    await this.redis.decr(`user:${followerId}:following:count`);
 
     return true;
   }
@@ -125,9 +185,9 @@ export class Neo4jFollowerRepository implements FollowerRepository {
 
   async getMutualFollowers(userId: string, otherUserId: string): Promise<Follower[]> {
     const records = await this.neo4j.run<{ mutualId: string; createdAt: any }>(
-      `MATCH (me:User {id: $userId})<-[:FOLLOWS]-(common:User)-[:FOLLOWS]->(other:User {id: $otherUserId})
-       RETURN common.id AS mutualId, common.createdAt AS createdAt
-       ORDER BY common.createdAt DESC`,
+      `MATCH (me:User {id: $userId})<-[r1:FOLLOWS]-(common:User)-[r2:FOLLOWS]->(other:User {id: $otherUserId})
+       RETURN common.id AS mutualId, r2.createdAt AS createdAt
+       ORDER BY r2.createdAt DESC`,
       { userId, otherUserId },
     );
 

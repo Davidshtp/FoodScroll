@@ -24,3 +24,9 @@ export const HEADER_USER_ROLE = 'x-user-role';
 
 // Restaurant Service URL
 export const RESTAURANT_SERVICE_URL = 'RESTAURANT_SERVICE_URL';
+
+// Engagement Service URL
+export const ENGAGEMENT_SERVICE_URL = 'ENGAGEMENT_SERVICE_URL';
+
+// Location Service URL
+export const LOCATION_SERVICE_URL = 'LOCATION_SERVICE_URL';

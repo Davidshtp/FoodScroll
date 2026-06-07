@@ -41,6 +41,7 @@ import {
   UploadBannerUseCase,
   DeleteLogoUseCase,
   DeleteBannerUseCase,
+  GetNearbyRestaurantsUseCase,
 } from '../../application/usecases/restaurant';
 
 import { IdentityServiceClient } from '../../infrastructure/http/identity-service.client';
@@ -52,6 +53,7 @@ import { RestaurantController } from '../http/controllers/restaurant.controller'
 import { RestaurantAddressController } from '../http/controllers/restaurant-address.controller';
 import { RestaurantOpeningHoursController } from '../http/controllers/restaurant-opening-hours.controller';
 import { RestaurantInternalController } from '../http/controllers/restaurant-internal.controller';
+import { RestaurantNearbyController } from '../http/controllers/restaurant-nearby.controller';
 
 import { ServiceSecretGuard, JwtAuthGuard } from '../http/guards';
 import { LoggingInterceptor } from '../http/interceptors/logging.interceptor';
@@ -109,6 +111,7 @@ import { JwtStrategy } from '../http/strategies';
     RestaurantAddressController,
     RestaurantOpeningHoursController,
     RestaurantInternalController,
+    RestaurantNearbyController,
   ],
   providers: [
     {
@@ -131,6 +134,7 @@ import { JwtStrategy } from '../http/strategies';
     UploadBannerUseCase,
     DeleteLogoUseCase,
     DeleteBannerUseCase,
+    GetNearbyRestaurantsUseCase,
     RestaurantOnboardingCalculator,
     CloudinaryService,
     JwtStrategy,

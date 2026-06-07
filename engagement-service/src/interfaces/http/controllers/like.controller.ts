@@ -4,6 +4,7 @@ import { CurrentUser } from '../decorators/current-user.decorator';
 import { ToggleLikeUseCase } from '../../../application/usecases/likes/toggle-like.usecase';
 import { GetLikeCountUseCase } from '../../../application/usecases/likes/get-like-count.usecase';
 import { HasUserLikedUseCase } from '../../../application/usecases/likes/has-user-liked.usecase';
+import { GetUserLikedPublicationsUseCase } from '../../../application/usecases/likes/get-user-liked-publications.usecase';
 
 @Controller('likes')
 export class LikeController {
@@ -11,6 +12,7 @@ export class LikeController {
     private readonly toggleLikeUseCase: ToggleLikeUseCase,
     private readonly getLikeCountUseCase: GetLikeCountUseCase,
     private readonly hasUserLikedUseCase: HasUserLikedUseCase,
+    private readonly getUserLikedPublicationsUseCase: GetUserLikedPublicationsUseCase,
   ) {}
 
   @Post('toggle/:publicationId')
@@ -38,5 +40,13 @@ export class LikeController {
     @CurrentUser() user: { id: string; role: string; appStatus: string },
   ) {
     return this.hasUserLikedUseCase.execute(user.id, user.role, publicationId);
+  }
+
+  @Get('user/:userId/publications')
+  async getUserLikedPublications(
+    @Param('userId') userId: string,
+  ) {
+    const publicationIds = await this.getUserLikedPublicationsUseCase.execute(userId);
+    return { publicationIds };
   }
 }

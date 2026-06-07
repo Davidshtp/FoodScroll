@@ -86,7 +86,7 @@ export class EngagementProxyController {
     @Req() req: Request,
     @CurrentUser() user: any,
   ) {
-    const targetUser = await this.httpClient.forward<{ id: string; role: string }>({
+    const targetUser = await this.httpClient.forward<{ id: string; role: string; email?: string }>({
       method: 'GET',
       service: 'IDENTITY',
       path: `/users/${userId}`,
@@ -96,12 +96,35 @@ export class EngagementProxyController {
       throw new ForbiddenException('No puedes seguir a un usuario de tipo DELIVERY');
     }
 
+    let displayName = targetUser.data.email || userId;
+
+    if (targetUser.data.role === Role.RESTAURANT) {
+      try {
+        const restaurantInfo = await this.httpClient.forward<{ restaurants: { id: string; name: string }[] }>({
+          method: 'GET',
+          service: 'RESTAURANT',
+          path: `/restaurant/internal/by-user-ids?ids=${userId}`,
+        });
+        if (restaurantInfo.data.restaurants?.length > 0) {
+          displayName = restaurantInfo.data.restaurants[0].name;
+        }
+      } catch {
+        // fallback al email si falla la consulta del restaurante
+      }
+    }
+
     const result = await this.proxy.forwardAuthenticated(req, user, {
       method: 'POST',
       service: 'ENGAGEMENT',
       path: `/followers/${userId}`,
     });
-    return result.data;
+
+    return {
+      following: result.data.following,
+      message: result.data.following
+        ? `Felicidades, ahora sigues a ${displayName}`
+        : `Ya sigues a ${displayName}`,
+    };
   }
 
   @Roles(Role.CUSTOMER)

@@ -2,7 +2,7 @@ import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig, Method } from 'axios';
 import { ServiceAuthService } from '../security/service-auth.service';
-import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, HTTP_RETRIES, HTTP_TIMEOUT, IDENTITY_SERVICE_URL, CUSTOMER_SERVICE_URL, LOCATION_SERVICE_URL, DELIVERY_SERVICE_URL, RESTAURANT_SERVICE_URL, PUBLICATIONS_SERVICE_URL, ENGAGEMENT_SERVICE_URL, ORDERS_SERVICE_URL } from '../../config/constants';
+import { HEADER_CORRELATION_ID, HEADER_USER_ID, HEADER_USER_ROLE, HEADER_USER_APPSTATUS, HTTP_RETRIES, HTTP_TIMEOUT, IDENTITY_SERVICE_URL, CUSTOMER_SERVICE_URL, LOCATION_SERVICE_URL, DELIVERY_SERVICE_URL, RESTAURANT_SERVICE_URL, PUBLICATIONS_SERVICE_URL, ENGAGEMENT_SERVICE_URL, ORDERS_SERVICE_URL } from '../../config/constants';
 
 // ───── Interfaces ─────
 export interface ServiceResponse<T = any> {
@@ -20,7 +20,7 @@ export interface ForwardOptions {
   headers?: Record<string, string>;
   cookies?: string;
   correlationId?: string;
-  user?: { id: string; role: string };
+  user?: { id: string; role: string; appStatus?: string };
   authorization?: string;
   timeout?: number;
   isMultipart?: boolean;
@@ -97,6 +97,7 @@ export class HttpClientService {
       }),
       ...(options.user?.id && { [HEADER_USER_ID]: options.user.id }),
       ...(options.user?.role && { [HEADER_USER_ROLE]: options.user.role }),
+      ...(options.user?.appStatus && { [HEADER_USER_APPSTATUS]: options.user.appStatus }),
       ...(options.authorization && { Authorization: options.authorization }),
       ...(options.cookies && { Cookie: options.cookies }),
       ...(customContentType ? { 'Content-Type': customContentType } : {}),

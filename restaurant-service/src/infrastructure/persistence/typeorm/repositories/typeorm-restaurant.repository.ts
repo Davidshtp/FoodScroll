@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not } from 'typeorm';
+import { Repository, IsNull, Not, In } from 'typeorm';
 import { Restaurant } from '../../../../domain/entities/restaurant.entity';
 import { RestaurantAddress } from '../../../../domain/entities/restaurant-address.entity';
 import { RestaurantOpeningHours } from '../../../../domain/entities/restaurant-opening-hours.entity';
@@ -41,6 +41,14 @@ export class TypeOrmRestaurantRepository implements RestaurantRepository {
       where: { userId, deletedAt: IsNull() },
     });
     return orm ? RestaurantMapper.toDomain(orm) : null;
+  }
+
+  async findByUserIds(userIds: string[]): Promise<Restaurant[]> {
+    if (userIds.length === 0) return [];
+    const orms = await this.restaurantRepo.find({
+      where: { userId: In(userIds), deletedAt: IsNull() },
+    });
+    return orms.map(RestaurantMapper.toDomain);
   }
 
   async findDeletedByUserId(userId: string): Promise<Restaurant | null> {
@@ -95,5 +103,41 @@ export class TypeOrmRestaurantRepository implements RestaurantRepository {
       order: { dayOfWeek: 'ASC' },
     });
     return orms.map(RestaurantOpeningHoursMapper.toDomain);
+  }
+
+  async findAddressesByRestaurantIds(ids: string[]): Promise<Map<string, { latitude: number; longitude: number; cityId: string }>> {
+    if (ids.length === 0) return new Map();
+    const orms = await this.addressRepo.find({
+      where: { restaurantId: In(ids), deletedAt: IsNull() },
+    });
+    return new Map(orms.map(a => [a.restaurantId, { latitude: a.latitude, longitude: a.longitude, cityId: a.cityId }]));
+  }
+
+  async findAllWithAddresses(): Promise<{ restaurant: Restaurant; address: RestaurantAddress }[]> {
+    const restaurantOrms = await this.restaurantRepo.find({
+      where: { deletedAt: IsNull() },
+    });
+
+    if (restaurantOrms.length === 0) return [];
+
+    const restaurantIds = restaurantOrms.map(r => r.id);
+    const addressOrms = await this.addressRepo.find({
+      where: { restaurantId: In(restaurantIds), deletedAt: IsNull() },
+    });
+
+    const addressMap = new Map(addressOrms.map(a => [a.restaurantId, a]));
+
+    const result: { restaurant: Restaurant; address: RestaurantAddress }[] = [];
+
+    for (const orm of restaurantOrms) {
+      const activeAddress = addressMap.get(orm.id);
+      if (!activeAddress) continue;
+
+      const restaurant = RestaurantMapper.toDomain(orm);
+      const address = RestaurantAddressMapper.toDomain(activeAddress);
+      result.push({ restaurant, address });
+    }
+
+    return result;
   }
 }

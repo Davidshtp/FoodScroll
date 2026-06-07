@@ -10,7 +10,7 @@ export class Neo4jService implements OnModuleInit, OnModuleDestroy {
 
   constructor(private readonly config: ConfigService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     const uri = this.config.get<string>(NEO4J_URI);
     const user = this.config.get<string>(NEO4J_USER);
     const password = this.config.get<string>(NEO4J_PASSWORD);
@@ -20,7 +20,8 @@ export class Neo4jService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
-    this.logger.log('Neo4j driver initialized');
+    await this.driver.verifyConnectivity();
+    this.logger.log('Neo4j driver initialized and connected');
   }
 
   async onModuleDestroy() {
@@ -47,5 +48,16 @@ export class Neo4jService implements OnModuleInit, OnModuleDestroy {
   async runSingle<T = any>(query: string, params: Record<string, any> = {}): Promise<T | null> {
     const results = await this.run<T>(query, params);
     return results.length > 0 ? results[0] : null;
+  }
+
+  async executeWrite<T>(callback: (tx: { run: (query: string, params: Record<string, any>) => any }) => Promise<T>): Promise<T> {
+    const session = this.driver.session();
+    try {
+      return await session.executeWrite(async (tx) => {
+        return await callback({ run: (query, params) => tx.run(query, params) });
+      });
+    } finally {
+      await session.close();
+    }
   }
 }

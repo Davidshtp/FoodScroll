@@ -35,3 +35,7 @@ export class Publication {
 }
 
 export const PublicationSchema = SchemaFactory.createForClass(Publication);
+
+PublicationSchema.index({ restaurantId: 1, deletedAt: 1 });
+PublicationSchema.index({ publishedAt: -1 });
+PublicationSchema.index({ deletedAt: 1 });

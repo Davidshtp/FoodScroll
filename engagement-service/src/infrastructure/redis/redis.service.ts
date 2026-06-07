@@ -10,14 +10,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   constructor(private readonly config: ConfigService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     const host = this.config.get<string>(REDIS_HOST) || '127.0.0.1';
     const port = this.config.get<number>(REDIS_PORT) || 6379;
 
-    this.client = new Redis({ host, port, maxRetriesPerRequest: 3 });
+    this.client = new Redis({ host, port, maxRetriesPerRequest: 3, lazyConnect: true });
 
     this.client.on('connect', () => this.logger.log('Redis connected'));
     this.client.on('error', (err) => this.logger.error('Redis error', err.stack));
+
+    await this.client.connect();
+    await this.client.ping();
+    this.logger.log('Redis connection verified');
   }
 
   async onModuleDestroy() {
@@ -74,5 +78,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   async smembers(key: string): Promise<string[]> {
     return this.client.smembers(key);
+  }
+
+  async eval(script: string, keys: string[], args: (string | number)[]): Promise<any> {
+    return this.client.eval(script, keys.length, ...keys, ...args);
   }
 }

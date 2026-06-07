@@ -10,3 +10,4 @@ export { UploadLogoUseCase, UploadImageInput as UploadLogoInput, UploadImageOutp
 export { UploadBannerUseCase, UploadImageInput as UploadBannerInput, UploadImageOutput as UploadBannerOutput } from './upload-banner.usecase';
 export { DeleteLogoUseCase, DeleteImageInput as DeleteLogoInput, DeleteImageOutput as DeleteLogoOutput } from './delete-logo.usecase';
 export { DeleteBannerUseCase, DeleteImageInput as DeleteBannerInput, DeleteImageOutput as DeleteBannerOutput } from './delete-banner.usecase';
+export { GetNearbyRestaurantsUseCase } from './get-nearby-restaurants.usecase';

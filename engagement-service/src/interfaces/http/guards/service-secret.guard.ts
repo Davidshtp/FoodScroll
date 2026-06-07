@@ -16,15 +16,15 @@ export class ServiceSecretGuard implements CanActivate {
     const secret = request.headers[HEADER_SERVICE_SECRET];
 
     if (!secret) {
-      this.logger.warn(`Request blocked (missing service-secret): ${request.method} ${request.url} from ${request.ip}`);
-      throw new ForbiddenException('Acceso denegado: esta API solo acepta peticiones internas');
+      return true;
     }
 
     if (secret !== this.serviceSecret) {
-      this.logger.warn(`Request blocked (invalid secret): ${request.method} ${request.url} from ${request.ip}`);
-      throw new ForbiddenException('Acceso denegado: credenciales de servicio inválidas');
+      this.logger.warn(`Peticion bloqueada (secret invalido): ${request.method} ${request.url} desde ${request.ip}`);
+      throw new ForbiddenException('Acceso denegado: credenciales de servicio invalidas');
     }
 
+    request._internalRequest = true;
     return true;
   }
 }

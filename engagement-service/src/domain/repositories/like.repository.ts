@@ -4,6 +4,7 @@ export interface LikeRepository {
   toggleLike(userId: string, publicationId: string): Promise<boolean>;
   getLikeCount(publicationId: string): Promise<number>;
   hasUserLiked(userId: string, publicationId: string): Promise<boolean>;
+  getUserLikedPublications(userId: string): Promise<string[]>;
 }
 
 export const LIKE_REPOSITORY = 'LIKE_REPOSITORY';

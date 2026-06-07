@@ -34,7 +34,7 @@ export class UserController {
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
-    return { id: user.id, role: user.role };
+    return { id: user.id, role: user.role, email: user.email };
   }
 
   @UseGuards(JwtAuthGuard)

@@ -13,28 +13,52 @@ export class Neo4jLikeRepository implements LikeRepository {
   ) {}
 
   async toggleLike(userId: string, publicationId: string): Promise<boolean> {
-    const alreadyLiked = await this.hasUserLiked(userId, publicationId);
+    const liked = await this.neo4j.executeWrite(async (tx) => {
+      const result = await tx.run(
+        'OPTIONAL MATCH (u:User {id: $userId})-[r:LIKES]->(p:Publication {id: $publicationId}) RETURN r IS NOT NULL AS hasLike',
+        { userId, publicationId },
+      );
+      const hasLike = result.records?.[0]?.get('hasLike') ?? false;
 
-    if (alreadyLiked) {
-      await this.neo4j.run(
-        'MATCH (u:User {id: $userId})-[r:LIKES]->(p:Publication {id: $publicationId}) DELETE r',
-        { userId, publicationId },
-      );
-      await this.redis.srem(`pub:${publicationId}:likes`, userId);
-      await this.redis.decr(`pub:${publicationId}:likes:count`);
-      return false;
-    } else {
-      await this.neo4j.run(
-        `MERGE (u:User {id: $userId})
-         MERGE (p:Publication {id: $publicationId})
-         MERGE (u)-[r:LIKES]->(p)
-         SET r.createdAt = datetime()`,
-        { userId, publicationId },
-      );
-      await this.redis.sadd(`pub:${publicationId}:likes`, userId);
-      await this.redis.incr(`pub:${publicationId}:likes:count`);
-      return true;
-    }
+      if (hasLike) {
+        await tx.run(
+          'MATCH (u:User {id: $userId})-[r:LIKES]->(p:Publication {id: $publicationId}) DELETE r',
+          { userId, publicationId },
+        );
+        return false;
+      } else {
+        await tx.run(
+          `MERGE (u:User {id: $userId})
+           MERGE (p:Publication {id: $publicationId})
+           MERGE (u)-[r:LIKES]->(p)
+           SET r.createdAt = datetime()`,
+          { userId, publicationId },
+        );
+        return true;
+      }
+    });
+
+    const luaScript = `
+      local key = KEYS[1]
+      local countKey = KEYS[2]
+      local member = ARGV[1]
+      local wasAdded = redis.call('SISMEMBER', key, member)
+      if wasAdded == 1 then
+        redis.call('SREM', key, member)
+        redis.call('DECR', countKey)
+        return 0
+      else
+        redis.call('SADD', key, member)
+        redis.call('INCR', countKey)
+        return 1
+      end
+    `;
+    await this.redis.eval(luaScript,
+      [`pub:${publicationId}:likes`, `pub:${publicationId}:likes:count`],
+      [userId],
+    );
+
+    return liked;
   }
 
   async getLikeCount(publicationId: string): Promise<number> {
@@ -63,6 +87,15 @@ export class Neo4jLikeRepository implements LikeRepository {
     );
 
     return (result?.liked ?? 0) > 0;
+  }
+
+  async getUserLikedPublications(userId: string): Promise<string[]> {
+    const result = await this.neo4j.run<{ publicationId: string }>(
+      'MATCH (u:User {id: $userId})-[r:LIKES]->(p:Publication) RETURN p.id AS publicationId ORDER BY r.createdAt DESC',
+      { userId },
+    );
+
+    return result.map(r => r.publicationId);
   }
 
   async rebuildCache(publicationId: string): Promise<void> {

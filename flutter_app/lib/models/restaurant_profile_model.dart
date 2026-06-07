@@ -175,7 +175,7 @@ class OpeningHour {
 
   factory OpeningHour.fromJson(Map<String, dynamic> json) {
     return OpeningHour(
-      dayOfWeek: (json['dayOfWeek'] ?? 0) as int,
+      dayOfWeek: ((json['dayOfWeek'] ?? 0) as num).toInt(),
       openTime: json['openTime']?.toString(),
       closeTime: json['closeTime']?.toString(),
       isClosed: json['isClosed'] == true,

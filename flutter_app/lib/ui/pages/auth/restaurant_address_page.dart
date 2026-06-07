@@ -23,7 +23,9 @@ import '../../components/futuristic_background.dart';
 import '../../components/app_logo.dart';
 
 class RestaurantAddressPage extends ConsumerStatefulWidget {
-  const RestaurantAddressPage({super.key});
+  final bool isFromSettings;
+
+  const RestaurantAddressPage({super.key, this.isFromSettings = false});
 
   @override
   ConsumerState<RestaurantAddressPage> createState() => _RestaurantAddressPageState();
@@ -47,9 +49,11 @@ class _RestaurantAddressPageState extends ConsumerState<RestaurantAddressPage> {
   bool _isLoadingCities = false;
   String? _pendingCityId;
 
-  String? _errorMessage;
-
   void _onCancel() {
+    if (widget.isFromSettings) {
+      if (context.canPop()) context.pop();
+      return;
+    }
     OnboardingNavigation.confirmCancel(
       context,
       onConfirm: () async {
@@ -247,6 +251,16 @@ class _RestaurantAddressPageState extends ConsumerState<RestaurantAddressPage> {
       await ref.read(restaurantServiceProvider).updateAddress(payload);
       if (!mounted) return;
 
+      if (widget.isFromSettings) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Dirección actualizada')),
+          );
+          if (context.canPop()) context.pop();
+        }
+        return;
+      }
+
       await ref.read(authServiceProvider).fetchMe();
 
       final route = await OnboardingNavigation.resolvePostAuthRoute(
@@ -429,7 +443,6 @@ class _RestaurantAddressPageState extends ConsumerState<RestaurantAddressPage> {
                     return match.isEmpty ? v : match.first.name;
                   },
                   hintText: _isLoadingCities ? 'Cargando...' : 'Selecciona',
-                  errorText: _errorMessage,
                   onChanged: _isLoadingCities || _cities.isEmpty
                       ? null
                       : (v) {

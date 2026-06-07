@@ -63,6 +63,88 @@ class _RestaurantSettingsPageState extends ConsumerState<RestaurantSettingsPage>
     }
   }
 
+  Future<void> _showBannerPhotoOptions() async {
+    final hasBanner = _profile?.bannerUrl != null && _profile!.bannerUrl!.isNotEmpty;
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.textTertiary, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.white70),
+              title: const Text('Tomar foto', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.white70),
+              title: const Text('Elegir de galería', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            if (hasBanner) ...[
+              const Divider(height: 1, color: AppColors.border),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: AppColors.error),
+                title: const Text('Eliminar banner', style: TextStyle(color: AppColors.error)),
+                onTap: () { Navigator.pop(ctx); _confirmDeleteBanner(); },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: source, maxWidth: 1920, maxHeight: 1080, imageQuality: 85);
+
+    if (picked != null && mounted) {
+      try {
+        final bytes = await picked.readAsBytes();
+        final name = picked.name;
+        final service = ref.read(restaurantServiceProvider);
+        await service.updateBanner(bytes, name);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Banner actualizado')));
+          _loadData();
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteBanner() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Eliminar banner'),
+        content: const Text('¿Estás seguro de eliminar el banner?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Eliminar', style: TextStyle(color: AppColors.error))),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // For now, we just clear the local reference. Server-side deletion can be added later.
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Funcionalidad en desarrollo')));
+    }
+  }
+
   Future<void> _showPhotoOptions() async {
     final hasPhoto = _profile?.logoUrl != null && _profile!.logoUrl!.isNotEmpty;
 
@@ -188,10 +270,12 @@ class _RestaurantSettingsPageState extends ConsumerState<RestaurantSettingsPage>
   }
 
   Future<void> _saveProfile(Map<String, dynamic> data) async {
+    final profile = _profile;
+    if (profile == null) return;
     setState(() => _isLoading = true);
     try {
       final service = ref.read(restaurantServiceProvider);
-      final p = _profile!;
+      final p = profile;
       final payload = RestaurantProfileUpdatePayload(
         name: data['name'] as String? ?? p.name,
         description: data['description'] as String? ?? p.description,
@@ -306,7 +390,15 @@ class _RestaurantSettingsPageState extends ConsumerState<RestaurantSettingsPage>
                 ),
               ),
               const SizedBox(height: AppSpacing.m),
-              _VerificationBanner(isVerified: isVerified),
+              _VerificationBanner(
+                isVerified: isVerified,
+                onTap: isVerified ? null : () => context.push('/verify-email'),
+              ),
+              const SizedBox(height: AppSpacing.m),
+              _BannerSection(
+                bannerUrl: profile.bannerUrl,
+                onTap: _showBannerPhotoOptions,
+              ),
               const SizedBox(height: AppSpacing.l),
               Text('INFORMACIÓN DEL RESTAURANTE', style: AppTypography.labelSmall.copyWith(color: AppColors.accent, letterSpacing: 1.5)),
               const SizedBox(height: AppSpacing.s),
@@ -321,7 +413,7 @@ class _RestaurantSettingsPageState extends ConsumerState<RestaurantSettingsPage>
                 label: 'Dirección',
                 value: _address?.address ?? 'Sin dirección',
                 onTap: () async {
-                  await context.push('/restaurant-address');
+                  await context.push('/restaurant-address', extra: true);
                   if (mounted) _loadData();
                 },
               ),
@@ -331,7 +423,7 @@ class _RestaurantSettingsPageState extends ConsumerState<RestaurantSettingsPage>
                     ? '${_openingHours.where((h) => !h.isClosed).length} días configurados'
                     : 'Sin configurar',
                 onTap: () async {
-                  await context.push('/opening-hours');
+                  await context.push('/opening-hours', extra: true);
                   if (mounted) _loadData();
                 },
               ),
@@ -346,25 +438,108 @@ class _RestaurantSettingsPageState extends ConsumerState<RestaurantSettingsPage>
   }
 }
 
-class _VerificationBanner extends StatelessWidget {
-  final bool isVerified;
-  const _VerificationBanner({required this.isVerified});
+class _BannerSection extends StatelessWidget {
+  final String? bannerUrl;
+  final VoidCallback onTap;
+
+  const _BannerSection({required this.bannerUrl, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isVerified ? AppColors.success.withValues(alpha: 0.1) : AppColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppRadius.m),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 140,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceHighlight,
+          borderRadius: BorderRadius.circular(AppRadius.m),
+          border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (bannerUrl != null && bannerUrl!.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: bannerUrl!,
+                fit: BoxFit.cover,
+                placeholder: (_, _) => Container(color: AppColors.surfaceHighlight),
+                errorWidget: (_, _, _) => Container(color: AppColors.surfaceHighlight),
+              )
+            else
+              Container(color: AppColors.surfaceHighlight),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.black.withValues(alpha: 0.4), Colors.transparent],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      bannerUrl != null && bannerUrl!.isNotEmpty ? 'Cambiar banner' : 'Agregar banner',
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.sm),
-      child: Row(
-        children: [
-          Icon(isVerified ? Icons.verified : Icons.warning_amber_rounded, color: isVerified ? AppColors.success : AppColors.warning, size: 20),
-          const SizedBox(width: AppSpacing.s),
-          Expanded(child: Text(isVerified ? 'Correo verificado' : 'Correo no verificado',
-              style: AppTypography.bodyMedium.copyWith(color: isVerified ? AppColors.success : AppColors.warning))),
-        ],
+    );
+  }
+}
+
+class _VerificationBanner extends StatelessWidget {
+  final bool isVerified;
+  final VoidCallback? onTap;
+
+  const _VerificationBanner({required this.isVerified, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.m),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isVerified ? AppColors.success.withValues(alpha: 0.1) : AppColors.warning.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppRadius.m),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.sm),
+          child: Row(
+            children: [
+              Icon(isVerified ? Icons.verified : Icons.warning_amber_rounded, color: isVerified ? AppColors.success : AppColors.warning, size: 20),
+              const SizedBox(width: AppSpacing.s),
+              Expanded(
+                child: Text(
+                  isVerified ? 'Correo verificado' : 'Correo no verificado',
+                  style: AppTypography.bodyMedium.copyWith(color: isVerified ? AppColors.success : AppColors.warning),
+                ),
+              ),
+              if (!isVerified)
+                const Icon(Icons.chevron_right, color: AppColors.warning, size: 20),
+            ],
+          ),
+        ),
       ),
     );
   }

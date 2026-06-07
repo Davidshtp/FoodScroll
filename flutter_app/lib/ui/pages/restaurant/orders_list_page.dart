@@ -1,12 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../models/order_model.dart';
 import '../../../services/order_service.dart';
+import '../../../services/websocket_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_typography.dart';
-import '../../components/futuristic_background.dart';
 
 class OrdersListPage extends ConsumerStatefulWidget {
   const OrdersListPage({super.key});
@@ -15,25 +16,34 @@ class OrdersListPage extends ConsumerStatefulWidget {
   ConsumerState<OrdersListPage> createState() => _OrdersListPageState();
 }
 
-class _OrdersListPageState extends ConsumerState<OrdersListPage> {
+class _OrdersListPageState extends ConsumerState<OrdersListPage>
+    with SingleTickerProviderStateMixin {
   List<RestaurantOrder>? _allOrders;
   bool _isLoading = true;
-  String _activeFilter = 'ALL';
-
-  final _filters = [
-    ('ALL', 'Todos'),
-    ('PENDING', 'Pendientes'),
-    ('CONFIRMED', 'Aceptados'),
-    ('PREPARING', 'Preparación'),
-    ('READY_FOR_PICKUP', 'Listos'),
-    ('DELIVERED', 'Entregados'),
-    ('CANCELLED', 'Cancelados'),
-  ];
+  late TabController _tabController;
+  StreamSubscription<Map<String, dynamic>>? _wsSubscription;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _load();
+    _setupWebSocket();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _wsSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _setupWebSocket() {
+    final ws = ref.read(webSocketServiceProvider);
+    ws.connect();
+    _wsSubscription = ws.orderStatusStream.listen((_) {
+      if (mounted) _load();
+    });
   }
 
   Future<void> _load() async {
@@ -42,143 +52,245 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage> {
       final service = ref.read(orderServiceProvider);
       final response = await service.fetchOrders();
       if (mounted) {
-        setState(() { _allOrders = response.orders; _isLoading = false; });
+        setState(() {
+          _allOrders = response.orders;
+          _isLoading = false;
+        });
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  List<RestaurantOrder> get _filteredOrders {
+  List<RestaurantOrder> _ordersByStatus(List<String> statuses) {
     if (_allOrders == null) return [];
-    if (_activeFilter == 'ALL') return _allOrders!;
     return _allOrders!
-        .where((o) => o.status.toUpperCase() == _activeFilter)
+        .where((o) => statuses.contains(o.status.toUpperCase()))
         .toList();
+  }
+
+  Future<void> _confirmOrder(String orderId) async {
+    try {
+      final updated = await ref.read(orderServiceProvider).confirmOrder(orderId);
+      if (mounted) {
+        setState(() {
+          _allOrders = _allOrders!.map((o) => o.id == orderId ? updated : o).toList();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pedido confirmado')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectOrder(String orderId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Rechazar pedido'),
+        content: const Text('¿Estás seguro de rechazar este pedido?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Rechazar', style: TextStyle(color: AppColors.error))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(orderServiceProvider).rejectOrder(orderId);
+      if (mounted) {
+        setState(() {
+          _allOrders = _allOrders!.map((o) => o.id == orderId
+              ? RestaurantOrder(
+                  id: o.id, customerId: o.customerId, restaurantId: o.restaurantId,
+                  deliveryId: o.deliveryId, customerAddressId: o.customerAddressId,
+                  status: 'CANCELLED', totalAmount: o.totalAmount,
+                  orderItems: o.orderItems, createdAt: o.createdAt,
+                  updatedAt: DateTime.now().toIso8601String(),
+                )
+              : o).toList();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pedido rechazado')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _startPreparing(String orderId) async {
+    try {
+      final updated = await ref.read(orderServiceProvider).startPreparing(orderId);
+      if (mounted) {
+        setState(() {
+          _allOrders = _allOrders!.map((o) => o.id == orderId ? updated : o).toList();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Preparando pedido')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _markReady(String orderId) async {
+    try {
+      final updated = await ref.read(orderServiceProvider).markReady(orderId);
+      if (mounted) {
+        setState(() {
+          _allOrders = _allOrders!.map((o) => o.id == orderId ? updated : o).toList();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pedido listo para recoger')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FuturisticBackground(
-      child: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: _load,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.m, AppSpacing.l, AppSpacing.m, AppSpacing.s,
-                ),
-                child: Text(
-                  'Pedidos',
-                  style: AppTypography.headlineMedium,
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
-                  children: _filters.map((f) {
-                    final isActive = _activeFilter == f.$1;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: AppSpacing.s),
-                      child: FilterChip(
-                        label: Text(
-                          f.$2,
-                          style: AppTypography.labelLarge.copyWith(
-                            fontSize: 13,
-                            color: isActive ? Colors.white : AppColors.textSecondary,
-                          ),
-                        ),
-                        selected: isActive,
-                        onSelected: (_) => setState(() => _activeFilter = f.$1),
-                        selectedColor: AppColors.primary,
-                        backgroundColor: AppColors.surface,
-                        checkmarkColor: Colors.white,
-                        side: BorderSide(
-                          color: isActive
-                              ? AppColors.primary
-                              : AppColors.border.withValues(alpha: 0.3),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.s)),
-            if (_isLoading)
-              const SliverFillRemaining(
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.primary,
-                  ),
-                ),
-              )
-            else if (_filteredOrders.isEmpty)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.receipt_long_outlined,
-                        size: 64,
-                        color: AppColors.textTertiary.withValues(alpha: 0.3),
-                      ),
-                      const SizedBox(height: AppSpacing.m),
-                      Text(
-                        'No hay pedidos',
-                        style: AppTypography.titleMedium.copyWith(
-                          color: AppColors.textTertiary.withValues(alpha: 0.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.m, 0, AppSpacing.m, 96,
-                ),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final order = _filteredOrders[index];
-                      return _OrderCard(
-                        order: order,
-                        onTap: () => context.push(
-                          '/restaurant/orders/${order.id}',
-                          extra: order,
-                        ),
-                      );
-                    },
-                    childCount: _filteredOrders.length,
-                  ),
-                ),
-              ),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text('Pedidos', style: AppTypography.headlineMedium),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: AppColors.primary,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textSecondary,
+          labelStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700),
+          unselectedLabelStyle: AppTypography.labelLarge,
+          tabs: const [
+            Tab(text: 'Pendientes'),
+            Tab(text: 'Preparación'),
+            Tab(text: 'Listos'),
           ],
         ),
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+          : RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: _load,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildSection(
+                    orders: _ordersByStatus(['PENDING']),
+                    emptyMsg: 'No hay pedidos pendientes',
+                    section: 'pending',
+                  ),
+                  _buildSection(
+                    orders: _ordersByStatus(['CONFIRMED', 'PREPARING']),
+                    emptyMsg: 'No hay pedidos en preparación',
+                    section: 'preparing',
+                  ),
+                  _buildSection(
+                    orders: _ordersByStatus(['READY_FOR_PICKUP', 'ACCEPTED', 'OUT_FOR_DELIVERY', 'DELIVERED']),
+                    emptyMsg: 'No hay pedidos listos',
+                    section: 'ready',
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSection({
+    required List<RestaurantOrder> orders,
+    required String emptyMsg,
+    required String section,
+  }) {
+    if (orders.isEmpty) {
+      return ListView(
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.4,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.receipt_long_outlined, size: 64,
+                      color: AppColors.textTertiary.withValues(alpha: 0.3)),
+                  const SizedBox(height: AppSpacing.m),
+                  Text(emptyMsg,
+                      style: AppTypography.titleMedium.copyWith(
+                          color: AppColors.textTertiary.withValues(alpha: 0.5))),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.s, AppSpacing.m, 96),
+      itemCount: orders.length,
+      itemBuilder: (context, index) {
+        final order = orders[index];
+        return _OrderCard(
+          order: order,
+          section: section,
+          onTap: () => context.push('/restaurant/orders/${order.id}', extra: order),
+          onConfirm: section == 'pending' ? () => _confirmOrder(order.id) : null,
+          onReject: section == 'pending' ? () => _rejectOrder(order.id) : null,
+          onPrepare: order.status.toUpperCase() == 'CONFIRMED'
+              ? () => _startPreparing(order.id)
+              : null,
+          onReady: order.status.toUpperCase() == 'PREPARING'
+              ? () => _markReady(order.id)
+              : null,
+        );
+      },
     );
   }
 }
 
 class _OrderCard extends StatelessWidget {
   final RestaurantOrder order;
+  final String section;
   final VoidCallback onTap;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onReject;
+  final VoidCallback? onPrepare;
+  final VoidCallback? onReady;
 
-  const _OrderCard({required this.order, required this.onTap});
+  const _OrderCard({
+    required this.order,
+    required this.section,
+    required this.onTap,
+    this.onConfirm,
+    this.onReject,
+    this.onPrepare,
+    this.onReady,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -199,26 +311,18 @@ class _OrderCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '#${order.id.split('-').first}',
-                      style: AppTypography.titleMedium,
-                    ),
+                    Text('#${order.id.split('-').first}',
+                        style: AppTypography.titleMedium),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.s,
-                        vertical: AppSpacing.xs,
-                      ),
+                          horizontal: AppSpacing.s, vertical: AppSpacing.xs),
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(AppRadius.s),
                       ),
-                      child: Text(
-                        order.statusLabel,
-                        style: AppTypography.labelSmall.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: Text(order.statusLabel,
+                          style: AppTypography.labelSmall.copyWith(
+                              color: color, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -227,20 +331,14 @@ class _OrderCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: AppSpacing.xs),
                   child: Row(
                     children: [
-                      Text(
-                        '${item.quantity}x ',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      Text('${item.quantity}x ',
+                          style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w600)),
                       Expanded(
-                        child: Text(
-                          item.productName,
-                          style: AppTypography.bodyMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: Text(item.productName,
+                            style: AppTypography.bodyMedium,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
                     ],
                   ),
@@ -248,31 +346,113 @@ class _OrderCard extends StatelessWidget {
                 if (order.orderItems.length > 2)
                   Padding(
                     padding: const EdgeInsets.only(top: AppSpacing.xs),
-                    child: Text(
-                      '+${order.orderItems.length - 2} más',
-                      style: AppTypography.labelSmall.copyWith(
-                        color: AppColors.textTertiary,
-                      ),
-                    ),
+                    child: Text('+${order.orderItems.length - 2} más',
+                        style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.textTertiary)),
                   ),
                 const SizedBox(height: AppSpacing.s),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      _formatDate(order.createdAt),
-                      style: AppTypography.labelSmall.copyWith(
-                        color: AppColors.textTertiary,
-                      ),
-                    ),
-                    Text(
-                      '\$${order.totalAmount.toStringAsFixed(0)}',
-                      style: AppTypography.titleMedium.copyWith(
-                        color: AppColors.accent,
-                      ),
-                    ),
+                    Text(_formatDate(order.createdAt),
+                        style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.textTertiary)),
+                    Text('\$${order.totalAmount.toStringAsFixed(0)}',
+                        style: AppTypography.titleMedium.copyWith(
+                            color: AppColors.accent)),
                   ],
                 ),
+                if (onConfirm != null || onReject != null || onPrepare != null || onReady != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  if (onConfirm != null || onReject != null)
+                    Row(
+                      children: [
+                        if (onConfirm != null)
+                          Expanded(
+                            child: SizedBox(
+                              height: 36,
+                              child: ElevatedButton(
+                                onPressed: onConfirm,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.success,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  textStyle: AppTypography.labelLarge.copyWith(
+                                      fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                child: const Text('Aceptar'),
+                              ),
+                            ),
+                          ),
+                        if (onConfirm != null && onReject != null)
+                          const SizedBox(width: AppSpacing.s),
+                        if (onReject != null)
+                          Expanded(
+                            child: SizedBox(
+                              height: 36,
+                              child: OutlinedButton(
+                                onPressed: onReject,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.error,
+                                  side: const BorderSide(color: AppColors.error),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  textStyle: AppTypography.labelLarge.copyWith(
+                                      fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                child: const Text('Rechazar'),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  if (onPrepare != null || onReady != null)
+                    Row(
+                      children: [
+                        if (onPrepare != null)
+                          Expanded(
+                            child: SizedBox(
+                              height: 36,
+                              child: ElevatedButton(
+                                onPressed: onPrepare,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.accent,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  textStyle: AppTypography.labelLarge.copyWith(
+                                      fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                child: const Text('Preparar'),
+                              ),
+                            ),
+                          ),
+                        if (onReady != null)
+                          Expanded(
+                            child: SizedBox(
+                              height: 36,
+                              child: ElevatedButton(
+                                onPressed: onReady,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.success,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  textStyle: AppTypography.labelLarge.copyWith(
+                                      fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                child: const Text('Listo'),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                ],
               ],
             ),
           ),
@@ -291,6 +471,10 @@ class _OrderCard extends StatelessWidget {
         return AppColors.accent;
       case 'READY_FOR_PICKUP':
         return AppColors.success;
+      case 'ACCEPTED':
+        return const Color(0xFF7C4DFF);
+      case 'OUT_FOR_DELIVERY':
+        return AppColors.info;
       case 'DELIVERED':
         return AppColors.textTertiary;
       case 'CANCELLED':

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../models/order_model.dart';
 import '../../../services/order_service.dart';
+import '../../../services/websocket_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_typography.dart';
@@ -22,11 +24,43 @@ class OrderDetailPage extends ConsumerStatefulWidget {
 class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   late RestaurantOrder _order;
   bool _isLoading = false;
+  StreamSubscription<Map<String, dynamic>>? _wsSubscription;
 
   @override
   void initState() {
     super.initState();
     _order = widget.order;
+    _setupWebSocket();
+  }
+
+  @override
+  void dispose() {
+    _wsSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _setupWebSocket() {
+    final ws = ref.read(webSocketServiceProvider);
+    ws.connect();
+    _wsSubscription = ws.orderStatusStream.listen((data) {
+      final orderId = data['orderId']?.toString() ?? data['id']?.toString();
+      if (orderId == _order.id) {
+        final status = data['status']?.toString();
+        final updatedAt = data['updatedAt']?.toString() ?? DateTime.now().toIso8601String();
+        if (status != null && mounted) {
+          setState(() {
+            _order = RestaurantOrder(
+              id: _order.id, customerId: _order.customerId,
+              restaurantId: _order.restaurantId, deliveryId: _order.deliveryId,
+              customerAddressId: _order.customerAddressId,
+              status: status, totalAmount: _order.totalAmount,
+              orderItems: _order.orderItems,
+              createdAt: _order.createdAt, updatedAt: updatedAt,
+            );
+          });
+        }
+      }
+    });
   }
 
   Future<void> _confirmOrder() async {

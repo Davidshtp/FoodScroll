@@ -14,7 +14,9 @@ import '../../components/futuristic_background.dart';
 import '../../components/app_logo.dart';
 
 class OpeningHoursPage extends ConsumerStatefulWidget {
-  const OpeningHoursPage({super.key});
+  final bool isFromSettings;
+
+  const OpeningHoursPage({super.key, this.isFromSettings = false});
 
   @override
   ConsumerState<OpeningHoursPage> createState() => _OpeningHoursPageState();
@@ -25,6 +27,10 @@ class _OpeningHoursPageState extends ConsumerState<OpeningHoursPage> {
   bool _isSubmitting = false;
 
   void _onCancel() {
+    if (widget.isFromSettings) {
+      if (context.canPop()) context.pop();
+      return;
+    }
     OnboardingNavigation.confirmCancel(
       context,
       onConfirm: () async {
@@ -133,7 +139,11 @@ class _OpeningHoursPageState extends ConsumerState<OpeningHoursPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Horario guardado correctamente')),
         );
-        context.go('/home');
+        if (widget.isFromSettings) {
+          if (context.canPop()) context.pop();
+        } else {
+          context.go('/home');
+        }
       }
     } on RestaurantProfileException catch (e) {
       if (mounted) {

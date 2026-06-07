@@ -77,19 +77,3 @@ class CreatePublicationPayload {
         'price': price,
       };
 }
-
-class UpdatePublicationPayload {
-  final String? title;
-  final String? description;
-  final String? type;
-  final String? price;
-  final List<String>? imageUrlsToDelete;
-
-  const UpdatePublicationPayload({
-    this.title,
-    this.description,
-    this.type,
-    this.price,
-    this.imageUrlsToDelete,
-  });
-}

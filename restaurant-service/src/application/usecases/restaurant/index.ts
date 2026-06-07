@@ -11,3 +11,4 @@ export { UploadBannerUseCase, UploadImageInput as UploadBannerInput, UploadImage
 export { DeleteLogoUseCase, DeleteImageInput as DeleteLogoInput, DeleteImageOutput as DeleteLogoOutput } from './delete-logo.usecase';
 export { DeleteBannerUseCase, DeleteImageInput as DeleteBannerInput, DeleteImageOutput as DeleteBannerOutput } from './delete-banner.usecase';
 export { GetNearbyRestaurantsUseCase } from './get-nearby-restaurants.usecase';
+export { GetPublicRestaurantProfileUseCase, GetPublicRestaurantProfileOutput } from './get-public-restaurant-profile.usecase';

@@ -6,6 +6,7 @@ import {
   Put,
   Delete,
   Body,
+  Param,
   Req,
   UseInterceptors,
   UseGuards,
@@ -193,6 +194,22 @@ export class RestaurantProxyController {
        method: 'GET',
        service: 'RESTAURANT',
        path: '/restaurant/opening-hours',
+     });
+     return result.data;
+   }
+
+   // ───── Perfil público del restaurante (CUSTOMER + RESTAURANT + DELIVERY) ─────
+   @Roles(Role.CUSTOMER, Role.RESTAURANT, Role.DELIVERY)
+   @Get('public/:restaurantId')
+   async getPublicProfile(
+     @Param('restaurantId') restaurantId: string,
+     @Req() req: Request,
+     @CurrentUser() user: any,
+   ) {
+     const result = await this.proxy.forwardAuthenticated(req, user, {
+       method: 'GET',
+       service: 'RESTAURANT',
+       path: `/restaurant/public/${restaurantId}`,
      });
      return result.data;
    }

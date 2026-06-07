@@ -12,6 +12,8 @@ import { GoogleAuthError, AccessDeniedError } from '../../../domain/errors/domai
 export interface GoogleLoginInput {
   idToken: string;
   client: ClientApp;
+  /** Si no se provee, se usa GOOGLE_CLIENT_ID (web) por defecto */
+  clientId?: string;
 }
 
 export interface GoogleLoginOutput {
@@ -57,9 +59,11 @@ export class GoogleLoginUseCase {
   }
 
   async execute(input: GoogleLoginInput): Promise<GoogleLoginOutput> {
+    const effectiveClientId = input.clientId ?? process.env.GOOGLE_CLIENT_ID ?? '';
+
     const googleInfo = await this.googleOAuth.verifyIdToken(
       input.idToken,
-      process.env.GOOGLE_CLIENT_ID || '',
+      effectiveClientId,
     );
 
     if (!googleInfo.email) {

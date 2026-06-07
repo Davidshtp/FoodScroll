@@ -1,8 +1,11 @@
 import { Controller, Post, Body, Res } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { GoogleLoginUseCase } from '../../../application/usecases/auth/google-login.usecase';
 import { GoogleLoginDto } from '../dtos/auth.dto';
 import { ClientApp } from '../../../domain/value-objects/client-app.vo';
+import { GoogleAuthError } from '../../../domain/errors/domain.errors';
+import { GOOGLE_CLIENT_ID_ANDROID } from '../../../infrastructure/config/constants';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
 const REFRESH_COOKIE_OPTIONS = {
@@ -16,6 +19,7 @@ const REFRESH_COOKIE_OPTIONS = {
 export class GoogleController {
   constructor(
     private readonly googleLoginUseCase: GoogleLoginUseCase,
+    private readonly config: ConfigService,
   ) {}
 
   @Post('google')
@@ -33,6 +37,40 @@ export class GoogleController {
       return {
         access_token: result.accessToken,
         refresh_token: result.refreshToken,
+        user: result.user,
+        isNewUser: result.isNewUser,
+      };
+    }
+
+    return {
+      access_token: result.accessToken,
+      refresh_token: result.refreshToken,
+      user: result.user,
+      isNewUser: result.isNewUser,
+    };
+  }
+
+  @Post('google/android')
+  async googleLoginAndroid(
+    @Body() dto: GoogleLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const androidClientId = this.config.get<string>(GOOGLE_CLIENT_ID_ANDROID);
+
+    if (!androidClientId) {
+      throw new GoogleAuthError('Android Client ID no configurado en el servidor');
+    }
+
+    const result = await this.googleLoginUseCase.execute({
+      idToken: dto.idToken,
+      client: dto.client,
+      clientId: androidClientId,
+    });
+
+    if (dto.client === ClientApp.RESTAURANT) {
+      res.cookie(REFRESH_COOKIE_NAME, result.refreshToken, REFRESH_COOKIE_OPTIONS);
+      return {
+        access_token: result.accessToken,
         user: result.user,
         isNewUser: result.isNewUser,
       };

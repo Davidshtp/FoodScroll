@@ -76,6 +76,28 @@ export class AuthProxyController {
   }
 
   @Public()
+  @Throttle({ default: { ttl: 60, limit: 10 } })
+  @Post('google/android')
+  async googleLoginAndroid(
+    @Body() body: any,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.proxy.forwardPublic(req, {
+      method: 'POST',
+      service: 'IDENTITY',
+      path: '/auth/google/android',
+      body,
+    });
+
+    if (result.setCookieHeaders?.length) {
+      res.setHeader('Set-Cookie', result.setCookieHeaders);
+    }
+
+    return result.data;
+  }
+
+  @Public()
   @Post('refresh')
   async refresh(
     @Body() body: any,

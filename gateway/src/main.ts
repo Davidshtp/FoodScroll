@@ -2,8 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, Logger } from '@nestjs/common';
-import * as httpProxy from 'http-proxy';
-const cookieParser = require('cookie-parser');
+import httpProxy from 'http-proxy';const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 import { GATEWAY_PORT, ORDERS_SERVICE_URL } from './config/constants';
 

@@ -5,6 +5,7 @@ import { OrderStatus } from '../../../domain/enums/order-status.enum';
 import { OrderRepository, ORDER_REPOSITORY } from '../../../domain/repositories/order.repository';
 import { CustomerIdentityPort, CUSTOMER_IDENTITY_PORT } from '../../ports/customer-identity.port';
 import { PublicationPort, PUBLICATION_PORT } from '../../ports/publication.port';
+import { OrderGateway } from '../../../interfaces/http/gateways/order.gateway';
 
 export interface CreateOrderInput {
   customerId: string;
@@ -27,6 +28,7 @@ export class CreateOrderUseCase {
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: OrderRepository,
     @Inject(PUBLICATION_PORT) private readonly publicationPort: PublicationPort,
     @Inject(CUSTOMER_IDENTITY_PORT) private readonly customerIdentityPort: CustomerIdentityPort,
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   async execute(input: CreateOrderInput): Promise<CreateOrderOutput> {
@@ -70,6 +72,8 @@ export class CreateOrderUseCase {
     });
 
     const savedOrder = await this.orderRepo.createWithItems(order, orderItems);
+
+    this.orderGateway.emitOrderStatusUpdate(savedOrder.id, savedOrder);
 
     return { order: savedOrder };
   }

@@ -3,6 +3,7 @@ import { Order } from '../../../domain/entities/order.entity';
 import { OrderStatus } from '../../../domain/enums/order-status.enum';
 import { OrderRepository, ORDER_REPOSITORY } from '../../../domain/repositories/order.repository';
 import { OrderNotFoundError, ForbiddenRoleError, InvalidOrderStatusTransitionError } from '../../../domain/errors/domain.errors';
+import { OrderGateway } from '../../../interfaces/http/gateways/order.gateway';
 
 export interface ConfirmOrderInput {
   orderId: string;
@@ -18,6 +19,7 @@ export interface ConfirmOrderOutput {
 export class ConfirmOrderUseCase {
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: OrderRepository,
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   async execute(input: ConfirmOrderInput): Promise<ConfirmOrderOutput> {
@@ -36,6 +38,8 @@ export class ConfirmOrderUseCase {
 
     const updatedOrder = order.updateStatus(OrderStatus.CONFIRMED);
     const savedOrder = await this.orderRepo.update(updatedOrder);
+
+    this.orderGateway.emitOrderStatusUpdate(savedOrder.id, savedOrder);
 
     return { order: savedOrder };
   }

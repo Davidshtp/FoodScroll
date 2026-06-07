@@ -8,6 +8,7 @@ import {
   OrderNotAssignedToYouError,
   OrderNotOutForDeliveryError,
 } from '../../../domain/errors/domain.errors';
+import { OrderGateway } from '../../../interfaces/http/gateways/order.gateway';
 
 export interface DeliverOrderInput {
   orderId: string;
@@ -23,6 +24,7 @@ export interface DeliverOrderOutput {
 export class DeliverOrderUseCase {
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: OrderRepository,
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   async execute(input: DeliverOrderInput): Promise<DeliverOrderOutput> {
@@ -45,6 +47,8 @@ export class DeliverOrderUseCase {
 
     const updatedOrder = order.markAsDelivered();
     const savedOrder = await this.orderRepo.update(updatedOrder);
+
+    this.orderGateway.emitOrderStatusUpdate(savedOrder.id, savedOrder);
 
     return { order: savedOrder };
   }

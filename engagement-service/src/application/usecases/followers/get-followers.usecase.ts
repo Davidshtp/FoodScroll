@@ -13,8 +13,8 @@ export class GetFollowersUseCase {
     userRole: string,
     targetUserId: string,
   ): Promise<{ followers: { id: string; userId: string; createdAt: Date }[]; count: number }> {
-    if (userRole !== 'CUSTOMER') {
-      throw new ForbiddenException('Solo los usuarios pueden ver seguidores');
+    if (userRole !== 'CUSTOMER' && userRole !== 'RESTAURANT') {
+      throw new ForbiddenException('Solo customers y restaurantes pueden ver seguidores');
     }
 
     const followers = await this.followerRepo.getFollowers(targetUserId);

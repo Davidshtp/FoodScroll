@@ -13,8 +13,8 @@ export class GetMutualFollowersUseCase {
     userRole: string,
     otherUserId: string,
   ): Promise<{ mutual: { id: string; userId: string }[] }> {
-    if (userRole !== 'CUSTOMER') {
-      throw new ForbiddenException('Solo los usuarios pueden ver seguidores en común');
+    if (userRole !== 'CUSTOMER' && userRole !== 'RESTAURANT') {
+      throw new ForbiddenException('Solo customers y restaurantes pueden ver seguidores en común');
     }
 
     const mutual = await this.followerRepo.getMutualFollowers(userId, otherUserId);

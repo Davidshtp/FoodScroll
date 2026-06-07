@@ -8,6 +8,7 @@ import {
   OrderNotAvailableForDeliveryError,
   OrderAlreadyAssignedError,
 } from '../../../domain/errors/domain.errors';
+import { OrderGateway } from '../../../interfaces/http/gateways/order.gateway';
 
 export interface AcceptDeliveryInput {
   orderId: string;
@@ -23,6 +24,7 @@ export interface AcceptDeliveryOutput {
 export class AcceptDeliveryUseCase {
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: OrderRepository,
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   async execute(input: AcceptDeliveryInput): Promise<AcceptDeliveryOutput> {
@@ -45,6 +47,8 @@ export class AcceptDeliveryUseCase {
 
     const updatedOrder = order.assignDelivery(input.userId);
     const savedOrder = await this.orderRepo.update(updatedOrder);
+
+    this.orderGateway.emitOrderStatusUpdate(savedOrder.id, savedOrder);
 
     return { order: savedOrder };
   }

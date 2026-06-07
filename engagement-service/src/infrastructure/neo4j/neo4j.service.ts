@@ -20,8 +20,16 @@ export class Neo4jService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
-    await this.driver.verifyConnectivity();
-    this.logger.log('Neo4j driver initialized and connected');
+
+    try {
+      await this.driver.verifyConnectivity();
+      this.logger.log('Neo4j conectado correctamente');
+    } catch (error) {
+      this.logger.error(`No se pudo conectar a Neo4j en ${uri}`);
+      this.logger.error('Asegúrate de que Neo4j esté corriendo. Ejemplo:');
+      this.logger.error('docker run -d --name feedgo-neo4j -e NEO4J_AUTH=neo4j/password123 -p 7474:7474 -p 7687:7687 neo4j:5');
+      throw new Error(`No se pudo conectar a Neo4j en ${uri}. Verifica que el servicio esté activo.`);
+    }
   }
 
   async onModuleDestroy() {

@@ -8,6 +8,7 @@ import {
   OrderNotAssignedToYouError,
   OrderNotAcceptedError,
 } from '../../../domain/errors/domain.errors';
+import { OrderGateway } from '../../../interfaces/http/gateways/order.gateway';
 
 export interface PickupOrderInput {
   orderId: string;
@@ -23,6 +24,7 @@ export interface PickupOrderOutput {
 export class PickupOrderUseCase {
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: OrderRepository,
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   async execute(input: PickupOrderInput): Promise<PickupOrderOutput> {
@@ -45,6 +47,8 @@ export class PickupOrderUseCase {
 
     const updatedOrder = order.markPickedUp();
     const savedOrder = await this.orderRepo.update(updatedOrder);
+
+    this.orderGateway.emitOrderStatusUpdate(savedOrder.id, savedOrder);
 
     return { order: savedOrder };
   }

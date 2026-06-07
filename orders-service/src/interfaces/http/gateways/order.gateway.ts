@@ -13,6 +13,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { JWT_SECRET_KEY } from '../../../infrastructure/config/constants';
+import { Order } from '../../../domain/entities/order.entity';
 
 interface JwtPayload {
   sub: string;
@@ -90,6 +91,24 @@ export class OrderGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   handleLeaveRoom(@ConnectedSocket() client: Socket, @MessageBody() payload: { orderId: string }): void {
     client.leave(payload.orderId);
     this.logger.log(`Client ${client.id} left order room: ${payload.orderId}`);
+  }
+
+  emitOrderStatusUpdate(orderId: string, order: Order): void {
+    const payload = {
+      event: 'order.status.updated',
+      data: {
+        orderId: order.id,
+        status: order.status,
+        customerId: order.customerId,
+        restaurantId: order.restaurantId,
+        deliveryId: order.deliveryId,
+        totalAmount: order.totalAmount,
+        orderItems: order.orderItems,
+        timestamp: new Date().toISOString(),
+      },
+    };
+    this.server.to(orderId).emit('order.status.updated', payload);
+    this.logger.log(`Emitted order.status.updated for order ${orderId}: ${order.status}`);
   }
 
   private extractTokenFromHandshake(client: Socket): string | null {

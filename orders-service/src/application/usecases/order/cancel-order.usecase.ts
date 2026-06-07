@@ -3,6 +3,7 @@ import { Order } from '../../../domain/entities/order.entity';
 import { OrderStatus } from '../../../domain/enums/order-status.enum';
 import { OrderRepository, ORDER_REPOSITORY } from '../../../domain/repositories/order.repository';
 import { OrderNotFoundError, OrderCannotBeCancelledError, UnauthorizedOrderAccessError } from '../../../domain/errors/domain.errors';
+import { OrderGateway } from '../../../interfaces/http/gateways/order.gateway';
 
 export interface CancelOrderInput {
   orderId: string;
@@ -17,6 +18,7 @@ export interface CancelOrderOutput {
 export class CancelOrderUseCase {
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: OrderRepository,
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   async execute(input: CancelOrderInput): Promise<CancelOrderOutput> {
@@ -39,8 +41,11 @@ export class CancelOrderUseCase {
       throw new OrderCannotBeCancelledError(order.status);
     }
 
+    const cancelledOrder = order.softDelete();
     await this.orderRepo.softDeleteWithItems(order.id);
 
-    return { order };
+    this.orderGateway.emitOrderStatusUpdate(input.orderId, cancelledOrder);
+
+    return { order: cancelledOrder };
   }
 }

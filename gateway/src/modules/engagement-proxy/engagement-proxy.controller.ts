@@ -75,7 +75,7 @@ export class EngagementProxyController {
     return result.data;
   }
 
-  // ── Followers (solo CUSTOMER) ──
+  // ── Followers (POST/DELETE solo CUSTOMER; GET CUSTOMER + RESTAURANT) ──
 
   @Roles(Role.CUSTOMER)
   @UseGuards(IsActiveGuard)
@@ -144,7 +144,7 @@ export class EngagementProxyController {
     return result.data;
   }
 
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.RESTAURANT)
   @Get('followers/:userId')
   async getFollowers(
     @Param('userId') userId: string,
@@ -159,7 +159,7 @@ export class EngagementProxyController {
     return result.data;
   }
 
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.RESTAURANT)
   @Get('followers/:userId/count')
   async getFollowersCount(
     @Param('userId') userId: string,
@@ -174,7 +174,7 @@ export class EngagementProxyController {
     return result.data;
   }
 
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.RESTAURANT)
   @Get('following/:userId')
   async getFollowing(
     @Param('userId') userId: string,
@@ -189,7 +189,7 @@ export class EngagementProxyController {
     return result.data;
   }
 
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.RESTAURANT)
   @Get('following/:userId/count')
   async getFollowingCount(
     @Param('userId') userId: string,
@@ -204,7 +204,7 @@ export class EngagementProxyController {
     return result.data;
   }
 
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.RESTAURANT)
   @Get('mutual/:userId')
   async getMutualFollowers(
     @Param('userId') userId: string,

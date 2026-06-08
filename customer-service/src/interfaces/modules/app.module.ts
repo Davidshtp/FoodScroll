@@ -26,6 +26,7 @@ import { CUSTOMER_IDENTITY_PORT } from '../../application/ports/customer-identit
 // Application - Use Cases (Customer Profile)
 import { CreateCustomerProfileUseCase } from '../../application/usecases/customer-profile/create-customer-profile.usecase';
 import { GetCustomerProfileUseCase } from '../../application/usecases/customer-profile/get-customer-profile.usecase';
+import { GetPublicCustomerProfileUseCase } from '../../application/usecases/customer-profile/get-public-customer-profile.usecase';
 import { UpdateCustomerProfileUseCase } from '../../application/usecases/customer-profile/update-customer-profile.usecase';
 import { UploadAvatarUseCase } from '../../application/usecases/customer-profile/upload-avatar.usecase';
 import { DeleteAvatarUseCase } from '../../application/usecases/customer-profile/delete-avatar.usecase';
@@ -41,6 +42,7 @@ import { AppController } from '../http/controllers/app.controller';
 import { CustomerProfileController } from '../http/controllers/customer-profile.controller';
 import { AddressController } from '../http/controllers/address.controller';
 import { CustomerInternalController } from '../http/controllers/customer-internal.controller';
+import { CustomerPublicController } from '../http/controllers/customer-public.controller';
 
 // Interfaces - Guards, Interceptors, Filters, Strategies
 import { ServiceSecretGuard, JwtAuthGuard } from '../http/guards';
@@ -86,7 +88,7 @@ import { JwtStrategy } from '../http/strategies';
     }),
     TypeOrmModule.forFeature([CustomerProfileOrmEntity, AddressOrmEntity]),
   ],
-  controllers: [AppController, CustomerProfileController, AddressController, CustomerInternalController],
+  controllers: [AppController, CustomerProfileController, AddressController, CustomerInternalController, CustomerPublicController],
   providers: [
     // ───── Repositories ─────
     {
@@ -105,6 +107,7 @@ import { JwtStrategy } from '../http/strategies';
     // ───── Use Cases (Customer Profile) ─────
     CreateCustomerProfileUseCase,
     GetCustomerProfileUseCase,
+    GetPublicCustomerProfileUseCase,
     UpdateCustomerProfileUseCase,
     UploadAvatarUseCase,
     DeleteAvatarUseCase,

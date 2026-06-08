@@ -108,6 +108,23 @@ export class CustomerProxyController {
     return result.data;
   }
 
+  // ───── Perfil público ─────
+
+  @Roles(Role.CUSTOMER, Role.RESTAURANT)
+  @Get('profile/public/:userId')
+  async getPublicProfile(
+    @Param('userId') userId: string,
+    @Req() req: Request,
+    @CurrentUser() user: any,
+  ) {
+    const result = await this.proxy.forwardAuthenticated(req, user, {
+      method: 'GET',
+      service: 'CUSTOMER',
+      path: `/customer-profile/public/${userId}`,
+    });
+    return result.data;
+  }
+
   // ───── Direcciones ─────
 
   @Post('address')

@@ -4,15 +4,19 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/address_model.dart';
 import '../../services/address_service.dart';
 import '../../services/storage_service.dart';
+import '../../state/cart_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import 'customer/feed_page.dart';
+import 'customer/customer_orders_page.dart';
+import 'customer/cart_page.dart';
 import 'profile/customer_profile_page.dart';
 import 'profile/delivery_profile_page.dart';
 import 'profile/restaurant_profile_page.dart';
 import 'profile/restaurant_settings_page.dart';
 import 'restaurant/restaurant_home_page.dart';
-import 'restaurant/publications_list_page.dart';
+import 'restaurant/orders_list_page.dart';
 import 'restaurant/create_publication_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -111,10 +115,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   // --- Tabs for Customer ---
   List<Widget> get _customerTabs => [
-    const _PlaceholderTab(icon: Icons.home_outlined, label: 'Inicio'),
-    const _PlaceholderTab(icon: Icons.shopping_bag_outlined, label: 'Pedidos'),
+    FeedPage(
+      key: ValueKey('feed_${_selectedAddress?.id}'),
+      latitude: _selectedAddress?.latitude,
+      longitude: _selectedAddress?.longitude,
+    ),
+    const CustomerOrdersPage(),
     const _PlaceholderTab(icon: Icons.send_outlined, label: 'Chat'),
-    const _PlaceholderTab(icon: Icons.search_outlined, label: 'Buscar'),
+    const CartPage(),
     CustomerProfilePage(onAddressesChanged: _loadAddresses),
   ];
 
@@ -130,7 +138,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   // --- Tabs for Restaurant ---
   List<Widget> get _restaurantTabs => [
     const RestaurantHomePage(),
-    const PublicationsListPage(),
+    const OrdersListPage(),
     const CreatePublicationPage(),
     const _PlaceholderTab(icon: Icons.notifications_outlined, label: 'Notificaciones'),
     RestaurantProfilePage(key: ValueKey('profile_$_profileRefreshKey')),
@@ -182,14 +190,14 @@ class _HomePageState extends ConsumerState<HomePage> {
           Icons.home_outlined,
           Icons.shopping_bag_outlined,
           Icons.send_outlined,
-          Icons.search_outlined,
+          Icons.shopping_cart_outlined,
           Icons.person_outlined,
         ],
         filled: [
           Icons.home,
           Icons.shopping_bag,
           Icons.send,
-          Icons.search,
+          Icons.shopping_cart,
           Icons.person,
         ],
       ),
@@ -327,9 +335,39 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: Icon(Icons.location_on, color: AppColors.primary, size: 20),
           );
         }
-        rightWidget = IconButton(
-          icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
-          onPressed: () {},
+        final cartCount = ref.watch(cartProvider.notifier).itemCount;
+        rightWidget = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart_outlined, color: AppColors.textPrimary),
+                  onPressed: () => setState(() => _selectedIndex = 3),
+                ),
+                if (cartCount > 0)
+                  Positioned(
+                    right: 4,
+                    top: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                      child: Text(
+                        '$cartCount',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+              onPressed: () {},
+            ),
+          ],
         );
     }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import '../core/api_exception.dart';
 import 'storage_service.dart';
@@ -9,6 +10,7 @@ class ApiService {
   final Dio _dio;
   final StorageService _storage = StorageService();
   bool _isRefreshing = false;
+  Completer<void>? _refreshCompleter;
 
   ApiService._internal()
       : _dio = Dio(
@@ -60,6 +62,10 @@ class ApiService {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    if (options.extra['skipAuth'] == true) {
+      handler.next(options);
+      return;
+    }
     if (options.data is FormData) {
       options.contentType = null;
       options.headers.remove('Content-Type');
@@ -106,9 +112,11 @@ class ApiService {
 
   Future<void> _refreshTokens() async {
     if (_isRefreshing) {
+      await _refreshCompleter?.future;
       return;
     }
     _isRefreshing = true;
+    _refreshCompleter = Completer<void>();
     try {
       final refreshToken = await _storage.getRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) {
@@ -119,16 +127,11 @@ class ApiService {
         );
       }
 
-      final accessToken = await _storage.getAccessToken();
       final response = await _dio.post(
         '/auth/refresh',
         data: {'refresh_token': refreshToken},
         options: Options(
-          headers: {
-            if (accessToken != null && accessToken.isNotEmpty)
-              'Authorization': 'Bearer $accessToken',
-          },
-          extra: {'skipAuthInterceptor': true},
+          extra: {'skipAuth': true},
         ),
       );
 
@@ -150,8 +153,13 @@ class ApiService {
           await _storage.saveUser(user);
         }
       }
+      _refreshCompleter!.complete();
+    } catch (e) {
+      _refreshCompleter!.completeError(e);
+      rethrow;
     } finally {
       _isRefreshing = false;
+      _refreshCompleter = null;
     }
   }
 

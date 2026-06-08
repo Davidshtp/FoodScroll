@@ -203,45 +203,6 @@ class _CreatePublicationPageState extends ConsumerState<CreatePublicationPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              CustomTextField(
-                label: 'Título',
-                controller: _titleController,
-                hintText: 'Nombre del producto',
-              ),
-              const SizedBox(height: AppSpacing.m),
-              CustomTextField(
-                label: 'Descripción',
-                controller: _descriptionController,
-                hintText: 'Describe el producto',
-                keyboardType: TextInputType.multiline,
-              ),
-              const SizedBox(height: AppSpacing.m),
-              CustomTextField(
-                label: 'Precio',
-                controller: _priceController,
-                hintText: '\$ 0.00',
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: AppSpacing.m),
-              CustomDropdownField(
-                label: 'Tipo',
-                value: _selectedType,
-                items: _types,
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedType = val);
-                },
-                itemLabelBuilder: (val) {
-                  switch (val) {
-                    case 'DISH': return 'Plato';
-                    case 'PROMOTION': return 'Promoción';
-                    case 'COMBO': return 'Combo';
-                    case 'BEVERAGE': return 'Bebida';
-                    case 'DESSERT': return 'Postre';
-                    default: return val;
-                  }
-                },
-              ),
-              const SizedBox(height: AppSpacing.l),
               Text(
                 'IMÁGENES',
                 style: AppTypography.labelSmall.copyWith(
@@ -285,6 +246,45 @@ class _CreatePublicationPageState extends ConsumerState<CreatePublicationPage> {
                 ),
                 icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
                 label: const Text('AGREGAR IMÁGENES'),
+              ),
+              const SizedBox(height: AppSpacing.l),
+              CustomTextField(
+                label: 'Título',
+                controller: _titleController,
+                hintText: 'Nombre del producto',
+              ),
+              const SizedBox(height: AppSpacing.m),
+              CustomTextField(
+                label: 'Descripción',
+                controller: _descriptionController,
+                hintText: 'Describe el producto',
+                keyboardType: TextInputType.multiline,
+              ),
+              const SizedBox(height: AppSpacing.m),
+              CustomTextField(
+                label: 'Precio',
+                controller: _priceController,
+                hintText: '\$ 0.00',
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: AppSpacing.m),
+              CustomDropdownField(
+                label: 'Tipo',
+                value: _selectedType,
+                items: _types,
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedType = val);
+                },
+                itemLabelBuilder: (val) {
+                  switch (val) {
+                    case 'DISH': return 'Plato';
+                    case 'PROMOTION': return 'Promoción';
+                    case 'COMBO': return 'Combo';
+                    case 'BEVERAGE': return 'Bebida';
+                    case 'DESSERT': return 'Postre';
+                    default: return val;
+                  }
+                },
               ),
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(

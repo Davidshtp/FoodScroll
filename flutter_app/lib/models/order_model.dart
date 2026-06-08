@@ -102,6 +102,10 @@ class RestaurantOrder {
         return 'En preparación';
       case 'READY_FOR_PICKUP':
         return 'Listo para recoger';
+      case 'ACCEPTED':
+        return 'Repartidor asignado';
+      case 'OUT_FOR_DELIVERY':
+        return 'En camino';
       case 'DELIVERED':
         return 'Entregado';
       case 'CANCELLED':

@@ -94,4 +94,45 @@ class OrderService {
       throw OrderException.fromApi(e);
     }
   }
+
+  Future<OrdersResponse> fetchMyOrders() async {
+    try {
+      final response = await _apiService.get('/orders');
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return OrdersResponse.fromJson(data);
+    } on ApiException catch (e) {
+      throw OrderException.fromApi(e);
+    }
+  }
+
+  Future<RestaurantOrder> createOrder({
+    required String restaurantId,
+    required List<Map<String, dynamic>> items,
+    String? addressId,
+    String? observation,
+  }) async {
+    try {
+      final response = await _apiService.post(
+        '/orders',
+        data: {
+          'restaurantId': restaurantId,
+          'items': items,
+          if (addressId != null) 'customerAddressId': addressId,
+          if (observation != null) 'observation': observation,
+        },
+      );
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return RestaurantOrder.fromJson(data['order'] as Map<String, dynamic>? ?? data);
+    } on ApiException catch (e) {
+      throw OrderException.fromApi(e);
+    }
+  }
+
+  Future<void> cancelOrder(String orderId) async {
+    try {
+      await _apiService.post('/orders/$orderId/cancel');
+    } on ApiException catch (e) {
+      throw OrderException.fromApi(e);
+    }
+  }
 }

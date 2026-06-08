@@ -78,6 +78,22 @@ class RestaurantService {
     }
   }
 
+  Future<String> updateBanner(List<int> bytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _apiService.patchMultipart(
+        path: '/restaurant/profile/banner',
+        formData: formData,
+      );
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return data['bannerUrl'] as String? ?? '';
+    } on ApiException catch (e) {
+      throw RestaurantProfileException.fromApi(e);
+    }
+  }
+
   Future<void> deleteLogo() async {
     try {
       await _apiService.delete('/restaurant/profile/logo');
@@ -94,7 +110,6 @@ class RestaurantService {
         return RestaurantProfile.fromJson(data);
       }
       throw RestaurantProfileException(
-        statusCode: 404,
         message: 'Perfil de restaurante no encontrado',
       );
     } on ApiException catch (e) {

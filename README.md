@@ -1,4 +1,4 @@
-# FeedGo
+# FoodScroll
 
 Plataforma de delivery de comida basada en arquitectura de microservicios.
 
@@ -42,7 +42,7 @@ Plataforma de delivery de comida basada en arquitectura de microservicios.
 Desde la carpeta raiz ejecuta:
 
 ```bash
-.\start-service.bat
+.\start-services.bat
 ```
 
 Esto abrira **Windows Terminal** con **11 pestañas**, una para cada microservicio.
@@ -71,7 +71,7 @@ python main.py
 ## Estructura del proyecto
 
 ```
-FeedGo/
+FoodScroll/
 ├── gateway/                    (API Gateway - Puerto 3000)
 ├── identity-service/           (Identidad - Puerto 5560)
 ├── customer-service/           (Clientes - Puerto 5561)

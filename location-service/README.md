@@ -1,98 +1,88 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+![FoodScroll Logo](../flutter_app/assets/images/FOODSCROLLPNG.png)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+# 📍 FoodScroll — Location Service
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+El **Location Service** es el mapa interno de **FoodScroll**. Este servicio contiene toda la informacion geografica de Colombia: sus 32 departamentos y mas de 1.100 municipios, ademas de convertir coordenadas en direcciones reales.
 
-## Description
+Piensa en el como el **guia turistico** de la plataforma: sabe exactamente donde queda cada lugar y puede decirte en que ciudad y departamento estas basado en tu ubicacion.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 🗺️ ¿Que hace?
 
-```bash
-$ npm install
+- **Catalogo de ubicaciones**: Tiene precargados todos los departamentos y ciudades de Colombia para que los usuarios puedan seleccionar su ubicacion al registrarse.
+- **Geocodificacion inversa**: Convierte coordenadas GPS (latitud/longitud) en direcciones legibles usando OpenStreetMap. Esto permite que cuando un cliente agrega una direccion, el sistema sepa automaticamente en que ciudad y departamento se encuentra.
+- **Referencia para otros servicios**: Los demas microservicios (clientes, restaurantes, repartidores) consultan aqui para validar direcciones y obtener informacion geografica.
+
+---
+
+## 🧩 Flujos que puedes realizar
+
+### 🏙️ Consultar ubicaciones disponibles
+
+| Que puedes hacer | Como |
+|-----------------|------|
+| Ver todos los departamentos de Colombia | `GET /department` |
+| Ver todas las ciudades de un departamento | `GET /city/by-department/:departmentId` |
+| Ver informacion de una ciudad especifica | `GET /city/:id` |
+
+### 🌐 Convertir coordenadas a direccion
+
+```
+1. Tomas las coordenadas GPS (latitud, longitud)
+2. Consultas → GET /geocode/reverse?latitude=...&longitude=...
+3. El servicio te devuelve:
+   └─ Direccion principal (calle, carrera, numero)
+   └─ Ciudad a la que pertenece
+   └─ ID interno de la ciudad (para validacion)
 ```
 
-## Compile and run the project
+Esto permite que cuando un cliente marca en el mapa donde quiere recibir su pedido, el sistema sepa exactamente en que ciudad y departamento esta sin que el usuario tenga que escribirlo manualmente.
 
-```bash
-# development
-$ npm run start
+---
 
-# watch mode
-$ npm run start:dev
+## 🇨🇴 Datos precargados
 
-# production mode
-$ npm run start:prod
-```
+El servicio ya viene con todos los datos geograficos de Colombia precargados automaticamente la primera vez que se inicia:
 
-## Run tests
+| Dato | Cantidad |
+|------|----------|
+| Departamentos | 32 |
+| Ciudades / Municipios | ~1.100 |
+| Cobertura | Todo el territorio colombiano |
 
-```bash
-# unit tests
-$ npm run test
+Esto incluye desde **Amazonas** hasta **Vichada**, pasando por todas las capitales departamentales y municipios principales.
 
-# e2e tests
-$ npm run test:e2e
+---
 
-# test coverage
-$ npm run test:cov
-```
+## 📡 Conexiones
 
-## Deployment
+- **Nominatim (OpenStreetMap)**: Servicio externo de geocodificacion que convierte coordenadas en direcciones reales. Se consulta en espanol para mejor precision con direcciones colombianas.
+- **Gateway**: Recibe peticiones a traves del Gateway.
+- **Customer Service y Restaurant Service**: Utilizan este servicio para validar y enriquecer direcciones.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+---
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 📦 Tecnologia
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+Construido con **NestJS 11** (TypeScript), base de datos **MySQL** y arquitectura **Clean Architecture**:
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+- **TypeORM** para la base de datos
+- **Nominatim API** (OpenStreetMap) para geocodificacion inversa
+- **Seed data** automatica al primer inicio con todos los datos de Colombia
 
-## Resources
+---
 
-Check out a few resources that may come in handy when working with NestJS:
+## 👥 Creditos
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+**FoodScroll** — Plataforma de delivery de comida desarrollada como proyecto integrador.
 
-## Support
+| Rol | Responsable |
+|-----|-------------|
+| **Desarrollo Backend** | David Medina, Edwin Agudelo |
+| **Desarrollo Mobile** | Jose Pantoja, Felipe Fajardo |
+| **Arquitectura** | David Medina, Edwin Agudelo, Jose Pantoja, Felipe Fajardo |
+| **Scrapers Python** | David Medina |
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+*Documentacion generada para desarrolladores y colaboradores del proyecto.*

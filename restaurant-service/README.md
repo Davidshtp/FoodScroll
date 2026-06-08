@@ -1,98 +1,128 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+![FoodScroll Logo](../flutter_app/assets/images/FOODSCROLLPNG.png)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+# 🍔 FoodScroll — Restaurant Service
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+El **Restaurant Service** es el modulo de **FoodScroll** encargado de gestionar todo lo relacionado con los **restaurantes** de la plataforma. Aqui los duenos de restaurantes crean su perfil, configuran su direccion, horarios de atencion y suben su logo y banner.
 
-## Description
+Piensa en este servicio como el **escaparate digital** de cada restaurante: muestra quien eres, donde quedas, cuando abres y como se ve tu negocio.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 🎯 ¿Que hace?
 
-```bash
-$ npm install
+- **Perfil de restaurante**: Cada restaurante tiene su perfil con nombre, descripcion, telefono, correo, logo y banner.
+- **Direccion**: Los restaurantes registran su ubicacion exacta con coordenadas para que los clientes sepan donde estan y los repartidores puedan recoger los pedidos.
+- **Horarios de atencion**: Cada restaurante configura sus horarios dia por dia (incluyendo cuales dias cierra).
+- **Logo y banner**: Los restaurantes pueden subir su logo y una imagen de portada para personalizar su perfil.
+- **Busqueda de restaurantes cercanos**: Los clientes pueden encontrar restaurantes cerca de su ubicacion.
+- **Onboarding progresivo**: Guia al restaurante paso a paso para completar su perfil (datos basicos → direccion → horarios).
+
+---
+
+## 🧩 Flujos que puedes realizar
+
+### 🆕 Registro completo de restaurante
+
+```
+Paso 1: Creas tu perfil → POST /restaurant
+   └─ Nombre, descripcion, telefono, correo
+   └─ Se genera un logo automatico con tus iniciales
+
+Paso 2: Agregas tu direccion → PUT /restaurant/address
+   └─ Direccion, ciudad, coordenadas (latitud/longitud)
+
+Paso 3: Configuras horarios → PUT /restaurant/opening-hours
+   └─ Horario para cada dia de la semana (abre/cierra)
+   └─ Puedes marcar dias como cerrados
+
+¡Listo! Cuando tengas direccion y todos los horarios configurados,
+tu restaurante estara visible para los clientes.
 ```
 
-## Compile and run the project
+### 🖼️ Personalizar imagen
 
-```bash
-# development
-$ npm run start
+| Que puedes hacer | Como |
+|-----------------|------|
+| Subir logo del restaurante | `PATCH /restaurant/logo` (multipart) |
+| Eliminar logo (vuelve a iniciales) | `DELETE /restaurant/logo` |
+| Subir banner de portada | `PATCH /restaurant/banner` (multipart) |
+| Eliminar banner | `DELETE /restaurant/banner` |
 
-# watch mode
-$ npm run start:dev
+### 📍 Configurar ubicacion
 
-# production mode
-$ npm run start:prod
+| Que puedes hacer | Como |
+|-----------------|------|
+| Ver tu direccion registrada | `GET /restaurant/address` |
+| Crear o actualizar direccion | `PUT /restaurant/address` |
+
+### 🕐 Configurar horarios
+
+| Que puedes hacer | Como |
+|-----------------|------|
+| Ver tus horarios actuales | `GET /restaurant/opening-hours` |
+| Actualizar horarios (los 7 dias) | `PUT /restaurant/opening-hours` |
+
+### 👀 Perfil publico
+
+Cualquier persona (sin necesidad de iniciar sesion) puede ver el perfil publico de un restaurante, incluyendo su direccion y horarios, a traves de:
+```
+GET /restaurant/public/:restaurantId
 ```
 
-## Run tests
+### 📍 Buscar restaurantes cercanos
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+Los servicios internos pueden buscar restaurantes cercanos a una ubicacion:
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+GET /restaurant/nearby?latitude=...&longitude=...&radius=10
 ```
+Esto permite que los clientes vean restaurantes cerca de ellos.
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+## 🗺️ Sistema de horarios inteligente
 
-Check out a few resources that may come in handy when working with NestJS:
+Cada restaurante puede configurar sus horarios de atencion para toda la semana:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+| Dia | Puede estar |
+|-----|-------------|
+| Lunes a Sabado | Abierto con horario definido, o cerrado |
+| Domingo | Abierto con horario definido, o cerrado |
 
-## Support
+El sistema valida que la hora de cierre sea posterior a la hora de apertura.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+---
 
-## Stay in touch
+## 📡 Conexiones
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- **Cloudinary**: Almacenamiento de logos y banners de restaurantes.
+- **Identity Service**: Sincroniza el estado de onboarding del restaurante.
+- **Location Service**: Referencia para validar ciudades en las direcciones.
+- **Gateway**: Recibe peticiones a traves del Gateway.
 
-## License
+---
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## 📦 Tecnologia
+
+Construido con **NestJS 11** (TypeScript), base de datos **PostgreSQL** y arquitectura **Clean Architecture**:
+
+- **TypeORM** para la base de datos con PostgreSQL
+- **Cloudinary** para imagenes (logos y banners)
+- **UI Avatars** para logos generados por defecto
+- **Unsplash** para banners generados por defecto
+- **Formula de Haversine** para busqueda de restaurantes cercanos
+
+---
+
+## 👥 Creditos
+
+**FoodScroll** — Plataforma de delivery de comida desarrollada como proyecto integrador.
+
+| Rol | Responsable |
+|-----|-------------|
+| **Desarrollo Backend** | David Medina, Edwin Agudelo |
+| **Desarrollo Mobile** | Jose Pantoja, Felipe Fajardo |
+| **Arquitectura** | David Medina, Edwin Agudelo, Jose Pantoja, Felipe Fajardo |
+| **Scrapers Python** | David Medina |
+
+---
+*Documentacion generada para desarrolladores y colaboradores del proyecto.*

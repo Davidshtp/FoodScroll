@@ -1,1 +1,8 @@
 start-services.bat
+
+# Environment variables (real env files, NOT .env.example)
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local

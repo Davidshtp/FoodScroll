@@ -22,6 +22,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
   bool _isLoading = true;
   late TabController _tabController;
   StreamSubscription<Map<String, dynamic>>? _wsSubscription;
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -29,20 +30,40 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
     _tabController = TabController(length: 3, vsync: this);
     _load();
     _setupWebSocket();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) _load();
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _wsSubscription?.cancel();
+    _pollTimer?.cancel();
     super.dispose();
   }
 
   void _setupWebSocket() {
     final ws = ref.read(webSocketServiceProvider);
     ws.connect();
-    _wsSubscription = ws.orderStatusStream.listen((_) {
-      if (mounted) _load();
+    _wsSubscription = ws.orderStatusStream.listen((data) {
+      final eventData = data['data'] as Map<String, dynamic>? ?? data;
+      final orderId = eventData['orderId']?.toString();
+      final status = eventData['status']?.toString();
+      if (orderId != null && status != null && mounted) {
+        setState(() {
+          _enrichedOrders = _enrichedOrders?.map((eo) {
+            if (eo.order.id == orderId) {
+              return EnrichedOrder(
+                order: eo.order.copyWithStatus(status),
+                restaurant: eo.restaurant,
+                customer: eo.customer,
+              );
+            }
+            return eo;
+          }).toList();
+        });
+      }
     });
   }
 
@@ -56,6 +77,9 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
           _enrichedOrders = response.orders;
           _isLoading = false;
         });
+        for (final eo in response.orders) {
+          ref.read(webSocketServiceProvider).joinOrderRoom(eo.order.id);
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
@@ -226,18 +250,6 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
                 ],
               ),
             ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text('A6', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-            ),
-          ),
         ],
       ),
     );

@@ -503,6 +503,29 @@ class _DeliveryProfilePageState extends ConsumerState<DeliveryProfilePage> {
           ),
           const SizedBox(height: AppSpacing.m),
           _VerificationBanner(isVerified: isVerified, onVerifyTap: _onVerifyEmail),
+          const SizedBox(height: AppSpacing.sm),
+          Material(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.m),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppRadius.m),
+              onTap: () async {
+                await context.push('/delivery/history');
+                if (mounted) _loadData();
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history, color: AppColors.primary, size: 22),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: Text('Historial de entregas', style: AppTypography.bodyLarge)),
+                    const Icon(Icons.chevron_right, color: AppColors.textTertiary, size: 20),
+                  ],
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: AppSpacing.l),
           Text('INFORMACIÓN PERSONAL', style: AppTypography.labelSmall.copyWith(color: AppColors.accent, letterSpacing: 1.5)),
           const SizedBox(height: AppSpacing.s),

@@ -162,8 +162,7 @@ class OrderService {
     try {
       final response = await _apiService.post('/orders/$orderId/accept');
       final data = response.data as Map<String, dynamic>? ?? {};
-      final orderData = data['order'] as Map<String, dynamic>? ?? data;
-      return DeliveryOrder.fromJson({'order': orderData});
+      return DeliveryOrder.fromJson(data);
     } on ApiException catch (e) {
       throw OrderException.fromApi(e);
     }
@@ -183,8 +182,7 @@ class OrderService {
     try {
       final response = await _apiService.post('/orders/$orderId/pickup');
       final data = response.data as Map<String, dynamic>? ?? {};
-      final orderData = data['order'] as Map<String, dynamic>? ?? data;
-      return DeliveryOrder.fromJson({'order': orderData});
+      return DeliveryOrder.fromJson(data);
     } on ApiException catch (e) {
       throw OrderException.fromApi(e);
     }
@@ -194,8 +192,7 @@ class OrderService {
     try {
       final response = await _apiService.post('/orders/$orderId/deliver');
       final data = response.data as Map<String, dynamic>? ?? {};
-      final orderData = data['order'] as Map<String, dynamic>? ?? data;
-      return DeliveryOrder.fromJson({'order': orderData});
+      return DeliveryOrder.fromJson(data);
     } on ApiException catch (e) {
       throw OrderException.fromApi(e);
     }

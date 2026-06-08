@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../models/order_model.dart';
+import '../../../models/address_model.dart';
 import '../../../services/order_service.dart';
 import '../../../services/restaurant_service.dart';
+import '../../../services/address_service.dart';
 import '../../../services/websocket_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
@@ -22,6 +27,10 @@ class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPag
   late RestaurantOrder _order;
   EnrichedRestaurantInfo? _restaurant;
   bool _isLoading = false;
+  StreamSubscription<Map<String, dynamic>>? _wsSub;
+  StreamSubscription<Map<String, dynamic>>? _locationSub;
+  LatLng? _deliveryPosition;
+  CustomerAddress? _customerAddress;
 
   @override
   void initState() {
@@ -29,9 +38,30 @@ class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPag
     _order = widget.enrichedOrder.order;
     _restaurant = widget.enrichedOrder.restaurant;
     _setupWebSocket();
+    _setupLocationListener();
+    ref.read(webSocketServiceProvider).joinOrderRoom(_order.id);
+    _fetchCustomerAddress();
     if (_restaurant == null) {
       _enrichRestaurant();
     }
+  }
+
+  @override
+  void dispose() {
+    ref.read(webSocketServiceProvider).leaveOrderRoom(_order.id);
+    _wsSub?.cancel();
+    _locationSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchCustomerAddress() async {
+    try {
+      final addresses = await ref.read(addressServiceProvider).fetchAddresses();
+      if (mounted) {
+        final match = addresses.where((a) => a.id == _order.customerAddressId).firstOrNull;
+        setState(() => _customerAddress = match ?? addresses.firstOrNull);
+      }
+    } catch (_) {}
   }
 
   Future<void> _enrichRestaurant() async {
@@ -50,34 +80,88 @@ class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPag
     } catch (_) {}
   }
 
-  void _setupWebSocket() {
+  void _setupLocationListener() {
     final ws = ref.read(webSocketServiceProvider);
-    ws.connect();
-    ws.orderStatusStream.listen((data) {
-      final orderId = data['orderId']?.toString() ?? data['id']?.toString();
-      if (orderId == _order.id) {
-        final status = data['status']?.toString();
-        final updatedAt = data['updatedAt']?.toString() ?? DateTime.now().toIso8601String();
-        if (status != null) {
-          if (mounted) {
-            setState(() {
-              _order = RestaurantOrder(
-                id: _order.id,
-                customerId: _order.customerId,
-                restaurantId: _order.restaurantId,
-                deliveryId: _order.deliveryId,
-                customerAddressId: _order.customerAddressId,
-                status: status,
-                totalAmount: _order.totalAmount,
-                orderItems: _order.orderItems,
-                createdAt: _order.createdAt,
-                updatedAt: updatedAt,
-              );
-            });
-          }
+    _locationSub = ws.deliveryLocationStream.listen((data) {
+      final eventData = data['data'] as Map<String, dynamic>? ?? data;
+      final orderId = eventData['orderId']?.toString() ?? '';
+      if (orderId == _order.id && mounted) {
+        final lat = eventData['lat'];
+        final lng = eventData['lng'];
+        if (lat != null && lng != null) {
+          setState(() {
+            _deliveryPosition = LatLng((lat as num).toDouble(), (lng as num).toDouble());
+          });
         }
       }
     });
+  }
+
+  void _setupWebSocket() {
+    final ws = ref.read(webSocketServiceProvider);
+    ws.connect();
+    _wsSub = ws.orderStatusStream.listen((data) {
+      final eventData = data['data'] as Map<String, dynamic>? ?? data;
+      final orderId = eventData['orderId']?.toString();
+      if (orderId == _order.id) {
+        final status = eventData['status']?.toString();
+        if (status != null && mounted) {
+          setState(() => _order = _order.copyWithStatus(status));
+        }
+      }
+    });
+  }
+
+  Widget _buildTrackingMap() {
+    final markers = <Marker>[];
+    LatLng? customerPoint;
+    if (_customerAddress != null && (_customerAddress!.latitude ?? 0) != 0) {
+      customerPoint = LatLng(_customerAddress!.latitude!, _customerAddress!.longitude!);
+      markers.add(Marker(
+        point: customerPoint,
+        width: 36, height: 36,
+        child: Container(
+          decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+          child: const Icon(Icons.home, color: Colors.white, size: 18),
+        ),
+      ));
+    }
+    if (_deliveryPosition != null) {
+      markers.add(Marker(
+        point: _deliveryPosition!,
+        width: 48, height: 48,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.2),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.delivery_dining, color: AppColors.primary, size: 28),
+        ),
+      ));
+    }
+    final center = customerPoint ?? _deliveryPosition ?? const LatLng(4.7110, -74.0721);
+    return Container(
+      height: 220,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: FlutterMap(
+        options: MapOptions(
+          initialCenter: center,
+          initialZoom: 15.0,
+          interactionOptions: const InteractionOptions(flags: ~InteractiveFlag.doubleTapZoom),
+        ),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.foodscroll.app',
+          ),
+          MarkerLayer(markers: markers),
+        ],
+      ),
+    );
   }
 
   bool get _canCancel => ['PENDING', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'].contains(_order.status.toUpperCase());
@@ -155,6 +239,12 @@ class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPag
           children: [
             _StatusTimeline(status: _order.statusLabel, statusCode: status),
             const SizedBox(height: AppSpacing.l),
+            if (status == 'OUT_FOR_DELIVERY') ...[
+              Text('UBICACIÓN DEL REPARTIDOR', style: AppTypography.labelSmall.copyWith(color: AppColors.accent, letterSpacing: 1.5)),
+              const SizedBox(height: AppSpacing.s),
+              _buildTrackingMap(),
+              const SizedBox(height: AppSpacing.l),
+            ],
             Text('DETALLE DEL PEDIDO', style: AppTypography.labelSmall.copyWith(color: AppColors.accent, letterSpacing: 1.5)),
             const SizedBox(height: AppSpacing.s),
             _InfoTile(label: 'Restaurante', value: _restaurantName, isId: false),
@@ -183,18 +273,6 @@ class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPag
           ],
         ),
       ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text('A3', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-            ),
-          ),
         ],
       ),
     );

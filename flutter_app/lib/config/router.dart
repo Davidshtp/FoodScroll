@@ -33,6 +33,7 @@ import '../ui/pages/customer/customer_order_detail_page.dart';
 import '../ui/pages/customer/restaurant_public_profile_page.dart';
 import '../ui/pages/delivery/delivery_home_page.dart';
 import '../ui/pages/delivery/delivery_order_detail_page.dart';
+import '../ui/pages/delivery/delivery_history_page.dart';
 import '../models/delivery_order_model.dart';
 
 
@@ -189,6 +190,10 @@ final router = GoRouter(
         if (delivery != null) return DeliveryOrderDetailPage(deliveryOrder: delivery);
         return const DeliveryHomePage();
       },
+    ),
+    GoRoute(
+      path: '/delivery/history',
+      builder: (context, state) => const DeliveryHistoryPage(),
     ),
   ],
 );

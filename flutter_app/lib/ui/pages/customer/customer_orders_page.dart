@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +21,8 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
   List<EnrichedOrder>? _enrichedOrders;
   bool _isLoading = true;
   late TabController _tabController;
+  StreamSubscription<Map<String, dynamic>>? _wsSub;
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -27,19 +30,43 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
     _tabController = TabController(length: 2, vsync: this);
     _load();
     _setupWebSocket();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) _load();
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _wsSub?.cancel();
+    _pollTimer?.cancel();
+    for (final eo in _enrichedOrders ?? []) {
+      ref.read(webSocketServiceProvider).leaveOrderRoom(eo.order.id);
+    }
     super.dispose();
   }
 
   void _setupWebSocket() {
     final ws = ref.read(webSocketServiceProvider);
     ws.connect();
-    ws.orderStatusStream.listen((data) {
-      if (mounted) _load();
+    _wsSub = ws.orderStatusStream.listen((data) {
+      final eventData = data['data'] as Map<String, dynamic>? ?? data;
+      final orderId = eventData['orderId']?.toString();
+      final status = eventData['status']?.toString();
+      if (orderId != null && status != null && mounted) {
+        setState(() {
+          _enrichedOrders = _enrichedOrders?.map((eo) {
+            if (eo.order.id == orderId) {
+              return EnrichedOrder(
+                order: eo.order.copyWithStatus(status),
+                restaurant: eo.restaurant,
+                customer: eo.customer,
+              );
+            }
+            return eo;
+          }).toList();
+        });
+      }
     });
   }
 
@@ -52,6 +79,9 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
           _enrichedOrders = response.orders;
           _isLoading = false;
         });
+        for (final eo in response.orders) {
+          ref.read(webSocketServiceProvider).joinOrderRoom(eo.order.id);
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
@@ -140,18 +170,6 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
                 ],
               ),
             ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text('A4', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-            ),
-          ),
         ],
       ),
     );

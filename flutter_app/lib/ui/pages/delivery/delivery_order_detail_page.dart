@@ -1,6 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../models/delivery_order_model.dart';
 import '../../../services/order_service.dart';
 import '../../../services/websocket_service.dart';
@@ -20,21 +24,38 @@ class DeliveryOrderDetailPage extends ConsumerStatefulWidget {
 class _DeliveryOrderDetailPageState extends ConsumerState<DeliveryOrderDetailPage> {
   late DeliveryOrder _delivery;
   bool _isLoading = false;
+  StreamSubscription<Map<String, dynamic>>? _wsSub;
+  Timer? _locationTimer;
+  LatLng? _currentPosition;
+
 
   @override
   void initState() {
     super.initState();
     _delivery = widget.deliveryOrder;
     _setupWebSocket();
+    ref.read(webSocketServiceProvider).joinOrderRoom(_delivery.order.id);
+    if (_delivery.order.status.toUpperCase() == 'OUT_FOR_DELIVERY') {
+      _startSendingLocation();
+    }
+  }
+
+  @override
+  void dispose() {
+    ref.read(webSocketServiceProvider).leaveOrderRoom(_delivery.order.id);
+    _wsSub?.cancel();
+    _stopSendingLocation();
+    super.dispose();
   }
 
   void _setupWebSocket() {
     final ws = ref.read(webSocketServiceProvider);
     ws.connect();
-    ws.orderStatusStream.listen((data) {
-      final orderId = data['data']?['orderId']?.toString() ?? data['orderId']?.toString();
+    _wsSub = ws.orderStatusStream.listen((data) {
+      final eventData = data['data'] as Map<String, dynamic>? ?? data;
+      final orderId = eventData['orderId']?.toString();
       if (orderId == _delivery.order.id) {
-        final status = data['data']?['status']?.toString() ?? data['status']?.toString();
+        final status = eventData['status']?.toString();
         if (status != null && mounted) {
           setState(() {
             _delivery = DeliveryOrder(
@@ -44,9 +65,47 @@ class _DeliveryOrderDetailPageState extends ConsumerState<DeliveryOrderDetailPag
               customer: _delivery.customer,
             );
           });
+          if (status.toUpperCase() == 'OUT_FOR_DELIVERY') {
+            _startSendingLocation();
+          } else if (status.toUpperCase() == 'DELIVERED') {
+            _stopSendingLocation();
+          }
         }
       }
     });
+  }
+
+  Future<void> _startSendingLocation() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+
+    _sendLocationOnce();
+    _locationTimer = Timer.periodic(const Duration(seconds: 10), (_) => _sendLocationOnce());
+  }
+
+  void _stopSendingLocation() {
+    _locationTimer?.cancel();
+    _locationTimer = null;
+  }
+
+  Future<void> _sendLocationOnce() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final latLng = LatLng(pos.latitude, pos.longitude);
+      if (mounted) setState(() => _currentPosition = latLng);
+      final ws = ref.read(webSocketServiceProvider);
+      ws.emit('delivery.location.updated', {
+        'orderId': _delivery.order.id,
+        'lat': pos.latitude,
+        'lng': pos.longitude,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    } catch (_) {}
   }
 
   Future<void> _pickup() async {
@@ -55,7 +114,12 @@ class _DeliveryOrderDetailPageState extends ConsumerState<DeliveryOrderDetailPag
       final result = await ref.read(orderServiceProvider).pickupOrder(_delivery.order.id);
       if (mounted) {
         setState(() {
-          _delivery = result;
+          _delivery = DeliveryOrder(
+            order: result.order,
+            restaurant: _delivery.restaurant ?? result.restaurant,
+            deliveryAddress: _delivery.deliveryAddress ?? result.deliveryAddress,
+            customer: _delivery.customer ?? result.customer,
+          );
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pedido recogido, en camino')));
@@ -74,7 +138,12 @@ class _DeliveryOrderDetailPageState extends ConsumerState<DeliveryOrderDetailPag
       final result = await ref.read(orderServiceProvider).deliverOrder(_delivery.order.id);
       if (mounted) {
         setState(() {
-          _delivery = result;
+          _delivery = DeliveryOrder(
+            order: result.order,
+            restaurant: _delivery.restaurant ?? result.restaurant,
+            deliveryAddress: _delivery.deliveryAddress ?? result.deliveryAddress,
+            customer: _delivery.customer ?? result.customer,
+          );
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pedido entregado exitosamente')));
@@ -85,6 +154,98 @@ class _DeliveryOrderDetailPageState extends ConsumerState<DeliveryOrderDetailPag
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
+  }
+
+  Widget _buildRouteMap(DeliveryAddressInfo? restAddr, DeliveryAddressInfo? deliveryAddr) {
+    final restLatLng = restAddr != null ? LatLng(restAddr.latitude, restAddr.longitude) : null;
+    final deliveryLatLng = deliveryAddr != null ? LatLng(deliveryAddr.latitude, deliveryAddr.longitude) : null;
+    final markers = <Marker>[];
+    List<LatLng> polyPoints = [];
+
+    if (restLatLng != null) {
+      markers.add(Marker(
+        point: restLatLng,
+        width: 36, height: 36,
+        child: Container(
+          decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+          child: const Icon(Icons.restaurant, color: Colors.white, size: 18),
+        ),
+      ));
+      polyPoints.add(restLatLng);
+    }
+    if (deliveryLatLng != null) {
+      markers.add(Marker(
+        point: deliveryLatLng,
+        width: 36, height: 36,
+        child: Container(
+          decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+          child: const Icon(Icons.location_on, color: Colors.white, size: 18),
+        ),
+      ));
+      polyPoints.add(deliveryLatLng);
+    }
+    if (_currentPosition != null) {
+      markers.add(Marker(
+        point: _currentPosition!,
+        width: 36, height: 36,
+        child: Container(
+          decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle),
+          child: const Icon(Icons.delivery_dining, color: Colors.white, size: 18),
+        ),
+      ));
+    }
+
+    LatLng? center;
+    double? zoom;
+    if (restLatLng != null && deliveryLatLng != null) {
+      center = LatLng(
+        (restLatLng.latitude + deliveryLatLng.latitude) / 2,
+        (restLatLng.longitude + deliveryLatLng.longitude) / 2,
+      );
+      zoom = 13.0;
+    } else if (restLatLng != null) {
+      center = restLatLng;
+      zoom = 15.0;
+    } else if (deliveryLatLng != null) {
+      center = deliveryLatLng;
+      zoom = 15.0;
+    } else {
+      center = const LatLng(4.7110, -74.0721);
+      zoom = 12.0;
+    }
+
+    return Container(
+      height: 220,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: FlutterMap(
+        options: MapOptions(
+          initialCenter: center,
+          initialZoom: zoom,
+          interactionOptions: const InteractionOptions(flags: ~InteractiveFlag.doubleTapZoom),
+        ),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.foodscroll.app',
+          ),
+          if (polyPoints.length >= 2)
+            PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: polyPoints,
+                  color: AppColors.primary.withValues(alpha: 0.6),
+                  strokeWidth: 3,
+                ),
+              ],
+            ),
+          MarkerLayer(markers: markers),
+        ],
+      ),
+    );
   }
 
   Color get _statusColor {
@@ -160,10 +321,19 @@ class _DeliveryOrderDetailPageState extends ConsumerState<DeliveryOrderDetailPag
                   _InfoTile(label: 'Dirección', value: 'No disponible'),
                 const SizedBox(height: AppSpacing.l),
 
-                if (rest?.address != null) ...[
+                if (status == 'ACCEPTED' || status == 'OUT_FOR_DELIVERY') ...[
+                  Text('RUTA', style: AppTypography.labelSmall.copyWith(color: AppColors.accent, letterSpacing: 1.5)),
+                  const SizedBox(height: AppSpacing.s),
+                  _buildRouteMap(rest?.address, deliveryAddr),
+                  const SizedBox(height: AppSpacing.l),
+                ],
+
+                if (rest != null) ...[
                   Text('RESTAURANTE', style: AppTypography.labelSmall.copyWith(color: AppColors.accent, letterSpacing: 1.5)),
                   const SizedBox(height: AppSpacing.s),
-                  _InfoTile(label: 'Dirección', value: rest!.address!.displayAddress, leading: const Icon(Icons.restaurant, color: AppColors.textSecondary, size: 20)),
+                  _InfoTile(label: 'Nombre', value: rest.name ?? 'Restaurante', leading: const Icon(Icons.restaurant, color: AppColors.textSecondary, size: 20)),
+                  if (rest.address != null)
+                    _InfoTile(label: 'Dirección', value: rest.address!.displayAddress, leading: const Icon(Icons.location_on, color: AppColors.primary, size: 20)),
                   const SizedBox(height: AppSpacing.l),
                 ],
 

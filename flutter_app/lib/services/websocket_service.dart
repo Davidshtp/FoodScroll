@@ -7,9 +7,11 @@ class WebSocketService {
   io.Socket? _socket;
   bool _isConnected = false;
   final _orderStatusController = StreamController<Map<String, dynamic>>.broadcast();
+  final _deliveryLocationController = StreamController<Map<String, dynamic>>.broadcast();
   final StorageService _storage = StorageService();
 
   Stream<Map<String, dynamic>> get orderStatusStream => _orderStatusController.stream;
+  Stream<Map<String, dynamic>> get deliveryLocationStream => _deliveryLocationController.stream;
   bool get isConnected => _isConnected;
 
   Future<void> connect() async {
@@ -41,11 +43,29 @@ class WebSocketService {
       }
     });
 
+    _socket!.on('delivery.location.updated', (data) {
+      if (data is Map<String, dynamic>) {
+        _deliveryLocationController.add(data);
+      }
+    });
+
     _socket!.onError((err) {
       _isConnected = false;
     });
 
     _socket!.connect();
+  }
+
+  void joinOrderRoom(String orderId) {
+    _socket?.emit('joinOrderRoom', {'orderId': orderId});
+  }
+
+  void leaveOrderRoom(String orderId) {
+    _socket?.emit('leaveOrderRoom', {'orderId': orderId});
+  }
+
+  void emit(String event, Map<String, dynamic> data) {
+    _socket?.emit(event, data);
   }
 
   void disconnect() {
@@ -58,6 +78,7 @@ class WebSocketService {
   void dispose() {
     disconnect();
     _orderStatusController.close();
+    _deliveryLocationController.close();
   }
 }
 

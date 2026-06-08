@@ -19,6 +19,7 @@ import 'restaurant/restaurant_home_page.dart';
 import 'restaurant/orders_list_page.dart';
 import 'restaurant/create_publication_page.dart';
 import 'delivery/delivery_home_page.dart';
+import 'delivery/delivery_map_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -130,7 +131,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   // --- Tabs for Delivery ---
   List<Widget> get _deliveryTabs => [
     const DeliveryHomePage(),
-    const _PlaceholderTab(icon: Icons.map_outlined, label: 'Mapa'),
+    const DeliveryMapPage(),
     const _PlaceholderTab(icon: Icons.two_wheeler_outlined, label: 'Pedidos'),
     const _PlaceholderTab(icon: Icons.send_outlined, label: 'Chat'),
     const DeliveryProfilePage(),

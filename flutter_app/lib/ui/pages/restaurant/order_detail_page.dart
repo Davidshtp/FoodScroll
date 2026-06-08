@@ -33,10 +33,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     _order = widget.enrichedOrder.order;
     _customer = widget.enrichedOrder.customer;
     _setupWebSocket();
+    ref.read(webSocketServiceProvider).joinOrderRoom(_order.id);
   }
 
   @override
   void dispose() {
+    ref.read(webSocketServiceProvider).leaveOrderRoom(_order.id);
     _wsSubscription?.cancel();
     super.dispose();
   }
@@ -45,21 +47,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     final ws = ref.read(webSocketServiceProvider);
     ws.connect();
     _wsSubscription = ws.orderStatusStream.listen((data) {
-      final orderId = data['orderId']?.toString() ?? data['id']?.toString();
+      final eventData = data['data'] as Map<String, dynamic>? ?? data;
+      final orderId = eventData['orderId']?.toString();
       if (orderId == _order.id) {
-        final status = data['status']?.toString();
-        final updatedAt = data['updatedAt']?.toString() ?? DateTime.now().toIso8601String();
+        final status = eventData['status']?.toString();
         if (status != null && mounted) {
-          setState(() {
-            _order = RestaurantOrder(
-              id: _order.id, customerId: _order.customerId,
-              restaurantId: _order.restaurantId, deliveryId: _order.deliveryId,
-              customerAddressId: _order.customerAddressId,
-              status: status, totalAmount: _order.totalAmount,
-              orderItems: _order.orderItems,
-              createdAt: _order.createdAt, updatedAt: updatedAt,
-            );
-          });
+          setState(() => _order = _order.copyWithStatus(status));
         }
       }
     });
@@ -234,18 +227,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ),
       ),
       ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text('A7', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-            ),
-          ),
         ],
       ),
     );

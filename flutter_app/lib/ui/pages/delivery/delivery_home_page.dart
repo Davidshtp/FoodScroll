@@ -23,6 +23,8 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
   List<DeliveryOrder> _active = [];
   bool _isLoadingAvailable = true;
   bool _isLoadingActive = true;
+  StreamSubscription<Map<String, dynamic>>? _wsSub;
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -31,16 +33,18 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
     _loadAvailable();
     _loadActive();
     _setupWebSocket();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) _loadAvailable();
+    });
   }
-
-  StreamSubscription<Map<String, dynamic>>? _wsSub;
 
   void _setupWebSocket() {
     final ws = ref.read(webSocketServiceProvider);
     _wsSub = ws.orderStatusStream.listen((data) {
       if (!mounted) return;
-      final updatedId = data['orderId']?.toString() ?? data['id']?.toString() ?? '';
-      final newStatus = data['status']?.toString() ?? '';
+      final eventData = data['data'] as Map<String, dynamic>? ?? data;
+      final updatedId = eventData['orderId']?.toString() ?? '';
+      final newStatus = eventData['status']?.toString() ?? '';
       if (updatedId.isEmpty || newStatus.isEmpty) return;
       setState(() {
         for (int i = 0; i < _available.length; i++) {
@@ -61,6 +65,7 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
   void dispose() {
     _tabController.dispose();
     _wsSub?.cancel();
+    _pollTimer?.cancel();
     super.dispose();
   }
 
@@ -78,7 +83,12 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
     setState(() => _isLoadingActive = true);
     try {
       final response = await ref.read(orderServiceProvider).fetchMyDeliveries();
-      if (mounted) setState(() { _active = response.orders; _isLoadingActive = false; });
+      if (mounted) {
+        setState(() { _active = response.orders; _isLoadingActive = false; });
+        for (final d in response.orders) {
+          ref.read(webSocketServiceProvider).joinOrderRoom(d.order.id);
+        }
+      }
     } catch (_) {
       if (mounted) setState(() => _isLoadingActive = false);
     }
@@ -214,7 +224,7 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
           final order = delivery.order;
           return _OrderCard(
             orderId: order.id,
-            restaurantName: delivery.restaurant?.address?.displayAddress ?? 'Restaurante',
+            restaurantName: delivery.restaurant?.name ?? 'Restaurante',
             restaurantAddress: '',
             total: order.totalAmount,
             items: order.orderItems,

@@ -40,6 +40,20 @@ class AuthController extends StateNotifier<AuthState> {
 
   AuthController(this._authService) : super(AuthState());
 
+  Future<void> loginWithGoogle(String idToken) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _authService.loginWithGoogle(idToken);
+      state = state.copyWith(isLoading: false, isAuthenticated: true);
+    } on ApiException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.displayMessage);
+      rethrow;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
   Future<void> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {

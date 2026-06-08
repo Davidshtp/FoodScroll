@@ -44,21 +44,11 @@ export class CommentController {
     @Param('publicationId') publicationId: string,
     @CurrentUser() user: { id: string; role: string; appStatus: string },
   ) {
-    const comments = await this.getCommentsUseCase.execute(
+    return this.getCommentsUseCase.execute(
       user.id,
       user.role,
       publicationId,
     );
-
-    return comments.map((c) => ({
-      id: c.id,
-      userId: c.userId,
-      userRole: c.userRole,
-      publicationId: c.publicationId,
-      text: c.text,
-      parentId: c.parentId ?? null,
-      createdAt: c.createdAt,
-    }));
   }
 
   @Get(':publicationId/count')

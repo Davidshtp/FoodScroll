@@ -92,6 +92,22 @@ class RestaurantOrder {
     return double.tryParse(value?.toString() ?? '0') ?? 0;
   }
 
+  RestaurantOrder copyWithStatus(String newStatus) {
+    return RestaurantOrder(
+      id: id,
+      customerId: customerId,
+      restaurantId: restaurantId,
+      deliveryId: deliveryId,
+      customerAddressId: customerAddressId,
+      status: newStatus,
+      totalAmount: totalAmount,
+      orderItems: orderItems,
+      createdAt: createdAt,
+      updatedAt: DateTime.now().toIso8601String(),
+      deletedAt: deletedAt,
+    );
+  }
+
   String get statusLabel {
     switch (status.toUpperCase()) {
       case 'PENDING':
@@ -116,8 +132,80 @@ class RestaurantOrder {
   }
 }
 
+class EnrichedOrder {
+  final RestaurantOrder order;
+  final EnrichedRestaurantInfo? restaurant;
+  final EnrichedCustomerInfo? customer;
+
+  const EnrichedOrder({
+    required this.order,
+    this.restaurant,
+    this.customer,
+  });
+
+  factory EnrichedOrder.fromJson(Map<String, dynamic> json) {
+    final orderJson = json['order'] as Map<String, dynamic>? ?? json;
+    final restJson = json['restaurant'] as Map<String, dynamic>?;
+    final custJson = json['customer'] as Map<String, dynamic>?;
+
+    return EnrichedOrder(
+      order: RestaurantOrder.fromJson(orderJson),
+      restaurant: restJson != null ? EnrichedRestaurantInfo.fromJson(restJson) : null,
+      customer: custJson != null ? EnrichedCustomerInfo.fromJson(custJson) : null,
+    );
+  }
+}
+
+class EnrichedRestaurantInfo {
+  final String id;
+  final String name;
+  final String logoUrl;
+
+  const EnrichedRestaurantInfo({
+    required this.id,
+    required this.name,
+    this.logoUrl = '',
+  });
+
+  factory EnrichedRestaurantInfo.fromJson(Map<String, dynamic> json) {
+    return EnrichedRestaurantInfo(
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      logoUrl: (json['logoUrl'] ?? '').toString(),
+    );
+  }
+}
+
+class EnrichedCustomerInfo {
+  final String userId;
+  final String firstName;
+  final String lastName;
+  final String phone;
+  final String? avatarUrl;
+
+  const EnrichedCustomerInfo({
+    required this.userId,
+    required this.firstName,
+    required this.lastName,
+    this.phone = '',
+    this.avatarUrl,
+  });
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory EnrichedCustomerInfo.fromJson(Map<String, dynamic> json) {
+    return EnrichedCustomerInfo(
+      userId: (json['userId'] ?? '').toString(),
+      firstName: (json['firstName'] ?? '').toString(),
+      lastName: (json['lastName'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      avatarUrl: json['avatarUrl']?.toString(),
+    );
+  }
+}
+
 class OrdersResponse {
-  final List<RestaurantOrder> orders;
+  final List<EnrichedOrder> orders;
   final PaginationInfo? pagination;
 
   const OrdersResponse({
@@ -131,7 +219,7 @@ class OrdersResponse {
       orders: ordersRaw is List
           ? ordersRaw
               .whereType<Map<String, dynamic>>()
-              .map(RestaurantOrder.fromJson)
+              .map(EnrichedOrder.fromJson)
               .toList()
           : [],
       pagination: json['pagination'] != null

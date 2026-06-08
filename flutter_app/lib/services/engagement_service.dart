@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_exception.dart';
 import 'api_service.dart';
+import 'storage_service.dart';
 
 final engagementServiceProvider = Provider<EngagementService>((ref) {
   return EngagementService();
@@ -135,9 +136,37 @@ class EngagementService {
     }
   }
 
+  Future<List<String>> getFollowing(String userId) async {
+    try {
+      final response = await _apiService.get('/engagement/following/$userId');
+      final data = response.data as Map<String, dynamic>? ?? {};
+      final following = data['following'];
+      if (following is List) {
+        return following
+            .whereType<Map<String, dynamic>>()
+            .map((e) => e['userId']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toList();
+      }
+      return [];
+    } on ApiException catch (e) {
+      throw EngagementException.fromApi(e);
+    }
+  }
+
+  Future<int> followingCount(String userId) async {
+    try {
+      final response = await _apiService.get('/engagement/following/$userId/count');
+      final data = response.data as Map<String, dynamic>? ?? {};
+      return (data['count'] ?? 0) as int;
+    } on ApiException catch (e) {
+      throw EngagementException.fromApi(e);
+    }
+  }
+
   Future<void> followRestaurant(String restaurantUserId) async {
     try {
-      await _apiService.post('/engagement/followers/follow/$restaurantUserId');
+      await _apiService.post('/engagement/followers/$restaurantUserId');
     } on ApiException catch (e) {
       throw EngagementException.fromApi(e);
     }
@@ -145,7 +174,7 @@ class EngagementService {
 
   Future<void> unfollowRestaurant(String restaurantUserId) async {
     try {
-      await _apiService.delete('/engagement/followers/follow/$restaurantUserId');
+      await _apiService.delete('/engagement/followers/$restaurantUserId');
     } on ApiException catch (e) {
       throw EngagementException.fromApi(e);
     }
@@ -153,15 +182,25 @@ class EngagementService {
 
   Future<bool> checkFollow(String restaurantUserId) async {
     try {
-      final response = await _apiService.get(
-        '/engagement/followers/check/$restaurantUserId',
-      );
+      final me = await StorageService().getUser();
+      final myId = me?['id']?.toString();
+      if (myId == null) return false;
+      final response = await _apiService.get('/engagement/following/$myId');
       final data = response.data as Map<String, dynamic>? ?? {};
-      return data['followed'] == true;
-    } on ApiException catch (e) {
-      throw EngagementException.fromApi(e);
+      final following = data['following'];
+      if (following is List) {
+        for (final f in following) {
+          if (f is Map<String, dynamic> && f['userId']?.toString() == restaurantUserId) {
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch (_) {
+      return false;
     }
   }
+
 }
 
 class LikeResponse {
@@ -179,6 +218,9 @@ class Comment {
   final String text;
   final String? parentId;
   final String createdAt;
+  final String? userImageUrl;
+  final String userName;
+  final String? userAvatarUrl;
 
   const Comment({
     required this.id,
@@ -188,6 +230,9 @@ class Comment {
     required this.text,
     this.parentId,
     required this.createdAt,
+    this.userImageUrl,
+    this.userName = '',
+    this.userAvatarUrl,
   });
 
   factory Comment.fromJson(Map<String, dynamic> json) {
@@ -199,6 +244,9 @@ class Comment {
       text: (json['text'] ?? '').toString(),
       parentId: json['parentId']?.toString(),
       createdAt: (json['createdAt'] ?? '').toString(),
+      userImageUrl: json['userImageUrl']?.toString(),
+      userName: (json['userName'] ?? '').toString(),
+      userAvatarUrl: json['userAvatarUrl']?.toString(),
     );
   }
 }

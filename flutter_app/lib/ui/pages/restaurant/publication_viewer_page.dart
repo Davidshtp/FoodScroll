@@ -14,6 +14,7 @@ class PublicationViewerPage extends ConsumerStatefulWidget {
   final int initialIndex;
   final RestaurantProfile profile;
   final bool isOwner;
+  final VoidCallback? onOrderNow;
 
   const PublicationViewerPage({
     super.key,
@@ -21,6 +22,7 @@ class PublicationViewerPage extends ConsumerStatefulWidget {
     required this.initialIndex,
     required this.profile,
     this.isOwner = false,
+    this.onOrderNow,
   });
 
   @override
@@ -58,17 +60,21 @@ class _PublicationViewerPageState extends ConsumerState<PublicationViewerPage> {
   Future<void> _loadEngagementFor(String pubId) async {
     try {
       final engagement = ref.read(engagementServiceProvider);
-      final liked = await engagement.checkLike(pubId);
-      final likes = await engagement.likeCount(pubId);
-      final comments = await engagement.getComments(pubId);
+      final results = await Future.wait([
+        engagement.checkLike(pubId).catchError((_) => false),
+        engagement.likeCount(pubId).catchError((_) => 0),
+        engagement.getComments(pubId).catchError((_) => <Comment>[]),
+      ]);
       if (mounted) {
         setState(() {
-          _isLiked = liked;
-          _likeCount = likes;
-          _comments = comments;
+          _isLiked = results[0] as bool;
+          _likeCount = results[1] as int;
+          _comments = results[2] as List<Comment>;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('A5 _loadEngagementFor error: $e');
+    }
   }
 
   Future<void> _toggleLike() async {
@@ -190,7 +196,9 @@ class _PublicationViewerPageState extends ConsumerState<PublicationViewerPage> {
           style: AppTypography.titleMedium.copyWith(color: Colors.white),
         ),
       ),
-      body: GestureDetector(
+      body: Stack(
+        children: [
+          GestureDetector(
         onVerticalDragEnd: (details) {
           if (details.primaryVelocity != null && details.primaryVelocity! > 500) {
             Navigator.pop(context);
@@ -225,9 +233,24 @@ class _PublicationViewerPageState extends ConsumerState<PublicationViewerPage> {
               onAddComment: index == _currentPubIndex ? _addComment : null,
               onDeleteComment: index == _currentPubIndex ? _deleteComment : null,
               onOptions: index == _currentPubIndex && widget.isOwner ? _showOptions : null,
+              onOrderNow: widget.onOrderNow,
             );
           },
         ),
+      ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('A5', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -246,6 +269,7 @@ class _PublicationPost extends StatelessWidget {
   final ValueChanged<String>? onAddComment;
   final ValueChanged<String>? onDeleteComment;
   final VoidCallback? onOptions;
+  final VoidCallback? onOrderNow;
 
   const _PublicationPost({
     required this.publication,
@@ -260,6 +284,7 @@ class _PublicationPost extends StatelessWidget {
     this.onAddComment,
     this.onDeleteComment,
     this.onOptions,
+    this.onOrderNow,
   });
 
   @override
@@ -283,6 +308,7 @@ class _PublicationPost extends StatelessWidget {
             isLiked: isLiked,
             likeCount: likeCount,
             onLike: onLike,
+            showLike: true,
           ),
           if (publication.title.isNotEmpty)
             Padding(
@@ -308,6 +334,24 @@ class _PublicationPost extends StatelessWidget {
             onDeleteComment: onDeleteComment,
             onAddComment: onAddComment,
           ),
+          if (onOrderNow != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: onOrderNow,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                  child: const Text('Ordenar ahora'),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -480,11 +524,13 @@ class _PostActions extends StatelessWidget {
   final bool isLiked;
   final int likeCount;
   final VoidCallback? onLike;
+  final bool showLike;
 
   const _PostActions({
     required this.isLiked,
     required this.likeCount,
     this.onLike,
+    this.showLike = true,
   });
 
   @override
@@ -493,15 +539,16 @@ class _PostActions extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onLike,
-            child: Icon(
-              isLiked ? Icons.favorite : Icons.favorite_border,
-              color: isLiked ? AppColors.error : Colors.white,
-              size: 26,
+          if (showLike)
+            GestureDetector(
+              onTap: onLike,
+              child: Icon(
+                isLiked ? Icons.favorite : Icons.favorite_border,
+                color: isLiked ? AppColors.error : Colors.white,
+                size: 26,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
+          if (showLike) const SizedBox(width: 8),
           Text(
             '$likeCount me gusta',
             style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
@@ -542,7 +589,7 @@ class _CommentsSectionState extends State<_CommentsSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.comments.isNotEmpty)
-          ...widget.comments.take(3).map((comment) => Padding(
+          ...widget.comments.map((comment) => Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,7 +599,7 @@ class _CommentsSectionState extends State<_CommentsSection> {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: '${comment.userId.split('-').first} ',
+                          text: '${comment.userName.isNotEmpty ? comment.userName : (comment.userRole.toLowerCase() == 'customer' ? 'Cliente' : (comment.userRole.toLowerCase() == 'restaurant' ? 'Restaurante' : comment.userId.split('-').first))} ',
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                         TextSpan(
@@ -575,30 +622,44 @@ class _CommentsSectionState extends State<_CommentsSection> {
             ),
           )),
         const SizedBox(height: 4),
+        const Divider(color: Colors.white12, height: 1, thickness: 0.5),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           child: Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _commentController,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  decoration: const InputDecoration(
-                    hintText: 'Agrega un comentario...',
-                    hintStyle: TextStyle(color: Colors.white38, fontSize: 14),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: TextField(
+                    controller: _commentController,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: const InputDecoration(
+                      hintText: 'Agrega un comentario...',
+                      hintStyle: TextStyle(color: Colors.white38, fontSize: 14),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    ),
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: () {
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
                   widget.onAddComment?.call(_commentController.text);
                   _commentController.clear();
                 },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
                 child: const Text('Publicar',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 14)),
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
               ),
             ],
           ),

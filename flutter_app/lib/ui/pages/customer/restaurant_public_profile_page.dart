@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/feed_publication_model.dart';
+import '../../../models/publication_model.dart';
+import '../../../models/restaurant_profile_model.dart';
 import '../../../services/engagement_service.dart';
 import '../../../services/feed_service.dart';
+import '../../../services/restaurant_service.dart';
 import '../../../state/cart_provider.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_typography.dart';
+import '../restaurant/publication_viewer_page.dart';
 
 class RestaurantPublicProfilePage extends ConsumerStatefulWidget {
   final String restaurantId;
@@ -20,9 +25,13 @@ class RestaurantPublicProfilePage extends ConsumerStatefulWidget {
 
 class _RestaurantPublicProfilePageState extends ConsumerState<RestaurantPublicProfilePage> {
   List<FeedPublication>? _publications;
+  RestaurantProfile? _profile;
   bool _isLoading = true;
   bool _isFollowed = false;
   int _followersCount = 0;
+
+  final Map<String, bool> _likedMap = {};
+  final Map<String, int> _likeCountMap = {};
 
   @override
   void initState() {
@@ -33,12 +42,21 @@ class _RestaurantPublicProfilePageState extends ConsumerState<RestaurantPublicPr
   Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
-      final response = await ref.read(feedServiceProvider).fetchFeed();
       final engagement = ref.read(engagementServiceProvider);
+      final feedService = ref.read(feedServiceProvider);
+      final restaurantService = ref.read(restaurantServiceProvider);
+
+      final response = await feedService.fetchFeed();
+
+      RestaurantProfile? profile;
+      try {
+        profile = await restaurantService.fetchPublicProfile(widget.restaurantId);
+      } catch (_) {
+        profile = null;
+      }
 
       final restaurantPubs = response.publications.where((p) => p.restaurantId == widget.restaurantId).toList();
       final followersCount = await engagement.followersCount(widget.restaurantId);
-
       bool followed = false;
       try {
         followed = await engagement.checkFollow(widget.restaurantId);
@@ -49,13 +67,104 @@ class _RestaurantPublicProfilePageState extends ConsumerState<RestaurantPublicPr
           _publications = restaurantPubs;
           _isFollowed = followed;
           _followersCount = followersCount;
+          _profile = profile;
           _isLoading = false;
         });
       }
+
+      await _initEngagementData(restaurantPubs, engagement);
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  Future<void> _initEngagementData(List<FeedPublication> pubs, EngagementService engagement) async {
+    if (pubs.isEmpty) return;
+    try {
+      final results = await Future.wait(
+        pubs.map((pub) => Future.wait([
+          engagement.likeCount(pub.id).catchError((_) => 0),
+          engagement.checkLike(pub.id).catchError((_) => false),
+        ])),
+      );
+      if (mounted) {
+        setState(() {
+          for (int i = 0; i < pubs.length; i++) {
+            _likeCountMap[pubs[i].id] = results[i][0] as int;
+            _likedMap[pubs[i].id] = results[i][1] as bool;
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleLike(String publicationId) async {
+    final engagement = ref.read(engagementServiceProvider);
+    final currentLiked = _likedMap[publicationId] ?? false;
+    final currentCount = _likeCountMap[publicationId] ?? 0;
+
+    setState(() {
+      _likedMap[publicationId] = !currentLiked;
+      _likeCountMap[publicationId] = currentLiked ? currentCount - 1 : currentCount + 1;
+    });
+
+    try {
+      final result = await engagement.toggleLike(publicationId);
+      if (mounted) {
+        setState(() {
+          _likedMap[publicationId] = result.liked;
+          _likeCountMap[publicationId] = result.count;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _likedMap[publicationId] = currentLiked;
+          _likeCountMap[publicationId] = currentCount;
+        });
+      }
+    }
+  }
+
+  String get _relativeDate {
+    if (_publications == null || _publications!.isEmpty) return '';
+    final newest = _publications!
+        .map((p) => p.publishedAt)
+        .reduce((a, b) => a.compareTo(b) > 0 ? a : b);
+    return _timeAgo(newest);
+  }
+
+  String _timeAgo(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      if (diff.inMinutes < 1) return 'Justo ahora';
+      if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} min';
+      if (diff.inHours < 24) return 'Hace ${diff.inHours} h';
+      if (diff.inDays < 7) return 'Hace ${diff.inDays} d';
+      return '${dt.day} de ${_months[dt.month - 1]} de ${dt.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static const _months = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ];
+
+  String get _restaurantName => _profile != null
+      ? _profile!.name
+      : (_publications != null && _publications!.isNotEmpty
+          ? _publications!.first.restaurantName
+          : 'Restaurante');
+
+  String? get _restaurantLogo => _profile?.logoUrl ?? (_publications != null && _publications!.isNotEmpty
+      ? _publications!.first.restaurantLogo
+      : null);
+
+  String get _description => _profile?.description ?? '';
 
   Future<void> _toggleFollow() async {
     final service = ref.read(engagementServiceProvider);
@@ -74,7 +183,8 @@ class _RestaurantPublicProfilePageState extends ConsumerState<RestaurantPublicPr
     } catch (_) {}
   }
 
-  void _addToCart(FeedPublication pub) {
+  void _orderPublication(int index) {
+    final pub = _publications![index];
     ref.read(cartProvider.notifier).addItem(CartItem(
       publicationId: pub.id,
       restaurantId: pub.restaurantId,
@@ -86,16 +196,65 @@ class _RestaurantPublicProfilePageState extends ConsumerState<RestaurantPublicPr
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${pub.title} añadido al carrito'), duration: const Duration(seconds: 2)),
     );
+    Navigator.pop(context);
+    context.push('/cart');
+  }
+
+  void _openViewer(int index) {
+    if (_publications == null || _publications!.isEmpty) return;
+
+    final pubs = _publications!.map((fp) => RestaurantPublication(
+      id: fp.id,
+      restaurantId: fp.restaurantId,
+      title: fp.title,
+      description: fp.description,
+      type: fp.type,
+      imageUrls: fp.imageUrls,
+      price: fp.price,
+      publishedAt: fp.publishedAt,
+    )).toList();
+
+    final profile = RestaurantProfile(
+      id: widget.restaurantId,
+      userId: widget.restaurantId,
+      name: _restaurantName,
+      description: _description,
+      phone: '',
+      email: '',
+      logoUrl: _restaurantLogo,
+      bannerUrl: null,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PublicationViewerPage(
+          publications: pubs,
+          initialIndex: index,
+          profile: profile,
+          isOwner: false,
+          onOrderNow: () => _orderPublication(index),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final restaurantName = _publications != null && _publications!.isNotEmpty
-        ? _publications!.first.restaurantName
-        : 'Restaurante';
-    final restaurantLogo = _publications != null && _publications!.isNotEmpty
-        ? _publications!.first.restaurantLogo
-        : null;
+    if (_isLoading && _publications == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -106,196 +265,226 @@ class _RestaurantPublicProfilePageState extends ConsumerState<RestaurantPublicPr
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(restaurantName, style: AppTypography.titleLarge),
+        title: Text(_restaurantName, style: AppTypography.titleLarge),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
-          : CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _ProfileHeader(
-                    restaurantName: restaurantName,
-                    restaurantLogo: restaurantLogo,
-                    isFollowed: _isFollowed,
-                    followersCount: _followersCount,
-                    onFollow: _toggleFollow,
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
-                  sliver: SliverToBoxAdapter(
-                    child: Text('PUBLICACIONES', style: AppTypography.labelSmall.copyWith(color: AppColors.accent, letterSpacing: 1.5)),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.s)),
-                if (_publications == null || _publications!.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.image_not_supported_outlined, size: 48, color: AppColors.textTertiary.withValues(alpha: 0.3)),
-                          const SizedBox(height: AppSpacing.s),
-                          Text('Sin publicaciones', style: AppTypography.bodyMedium.copyWith(color: AppColors.textTertiary)),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(AppSpacing.m, 0, AppSpacing.m, 96),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final pub = _publications![index];
-                          return _PublicProfileCard(
-                            publication: pub,
-                            onAddToCart: () => _addToCart(pub),
-                          );
-                        },
-                        childCount: _publications!.length,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-    );
-  }
-}
-
-class _ProfileHeader extends StatelessWidget {
-  final String restaurantName;
-  final String? restaurantLogo;
-  final bool isFollowed;
-  final int followersCount;
-  final VoidCallback onFollow;
-
-  const _ProfileHeader({
-    required this.restaurantName,
-    this.restaurantLogo,
-    required this.isFollowed,
-    required this.followersCount,
-    required this.onFollow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.m),
-      child: Column(
+      body: Stack(
         children: [
-          ClipOval(
-            child: SizedBox(
-              width: 80, height: 80,
-              child: restaurantLogo != null && restaurantLogo!.isNotEmpty
-                  ? CachedNetworkImage(imageUrl: restaurantLogo!, fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(color: AppColors.surfaceHighlight),
-                      errorWidget: (context, url, error) => Container(color: AppColors.surfaceHighlight, child: const Icon(Icons.store, color: AppColors.textSecondary, size: 40)))
-                  : Container(color: AppColors.surfaceHighlight, child: const Icon(Icons.store, color: AppColors.textSecondary, size: 40)),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(restaurantName, style: AppTypography.titleLarge),
-          const SizedBox(height: AppSpacing.xs),
-          Text('$followersCount seguidores', style: AppTypography.bodyMedium.copyWith(color: AppColors.textTertiary)),
-          const SizedBox(height: AppSpacing.m),
-          SizedBox(
-            width: 120,
-            child: ElevatedButton(
-              onPressed: onFollow,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isFollowed ? AppColors.surfaceHighlight : AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              child: Text(isFollowed ? 'Siguiendo' : 'Seguir', style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.l),
-        ],
-      ),
-    );
-  }
-}
-
-class _PublicProfileCard extends StatelessWidget {
-  final FeedPublication publication;
-  final VoidCallback onAddToCart;
-
-  const _PublicProfileCard({required this.publication, required this.onAddToCart});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.m),
-          border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (publication.imageUrls.isNotEmpty)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.m)),
-                child: CachedNetworkImage(
-                  imageUrl: publication.imageUrls.first,
-                  height: 200, width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(height: 200, color: AppColors.surfaceHighlight),
-                  errorWidget: (context, url, error) => Container(height: 200, color: AppColors.surfaceHighlight, child: const Icon(Icons.image, color: AppColors.textTertiary)),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.m),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _load,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Text(publication.title, style: AppTypography.titleMedium),
-                  if (publication.description.isNotEmpty) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(publication.description, style: AppTypography.bodyMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  ],
-                  if (publication.price != null) ...[
-                    const SizedBox(height: AppSpacing.s),
-                    Text('\$${publication.price!.toStringAsFixed(0)}', style: AppTypography.headlineMedium.copyWith(color: AppColors.accent)),
-                  ],
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    children: [
-                      const Icon(Icons.favorite_border, size: 18, color: AppColors.textSecondary),
-                      const SizedBox(width: 4),
-                      Text('0', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 13)),
-                      const SizedBox(width: AppSpacing.m),
-                      const Icon(Icons.chat_bubble_outline, size: 18, color: AppColors.textSecondary),
-                      const SizedBox(width: 4),
-                      Text('0', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 13)),
-                      const Spacer(),
-                      SizedBox(
-                        height: 32,
-                        child: ElevatedButton.icon(
-                          onPressed: onAddToCart,
-                          icon: const Icon(Icons.add_shopping_cart, size: 16),
-                          label: const Text('Carrito'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            textStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700, fontSize: 12),
+                  Container(
+                    height: 120,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceHighlight,
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: _profile?.bannerUrl != null && _profile!.bannerUrl!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: _profile!.bannerUrl!,
+                            fit: BoxFit.cover,
+                            placeholder: (_, _) => Container(color: AppColors.surfaceHighlight),
+                            errorWidget: (_, _, _) => Container(color: AppColors.surfaceHighlight),
+                          )
+                        : Container(color: AppColors.surfaceHighlight),
+                  ),
+                  Positioned(
+                    bottom: -35,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.background, width: 3),
+                        ),
+                        child: ClipOval(
+                          child: SizedBox(
+                            width: 80, height: 80,
+                            child: _restaurantLogo != null && _restaurantLogo!.isNotEmpty
+                                ? CachedNetworkImage(imageUrl: _restaurantLogo!, fit: BoxFit.cover,
+                                    placeholder: (_, _) => Container(color: AppColors.surfaceHighlight),
+                                    errorWidget: (_, _, _) => Container(color: AppColors.surfaceHighlight, child: const Icon(Icons.restaurant, color: AppColors.textSecondary, size: 32)))
+                                : Container(color: AppColors.surfaceHighlight, child: const Icon(Icons.restaurant, color: AppColors.textSecondary, size: 32)),
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 42),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(_restaurantName,
+                              style: AppTypography.titleLarge,
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Icon(Icons.verified, color: AppColors.success, size: 18),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      children: [
+                        Text(
+                          '$_followersCount seguidores',
+                          style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                        ),
+                        if (_publications != null && _publications!.isNotEmpty) ...[
+                          const SizedBox(width: AppSpacing.s),
+                          Text(
+                            '· ${_publications!.length} publicaciones',
+                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textTertiary),
+                          ),
+                          const SizedBox(width: AppSpacing.s),
+                          Text(
+                            '· Última $_relativeDate',
+                            style: AppTypography.labelSmall.copyWith(color: AppColors.textTertiary),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        SizedBox(
+                          height: 32,
+                          child: ElevatedButton(
+                            onPressed: _toggleFollow,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _isFollowed ? AppColors.surfaceHighlight : AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
+                              textStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                            child: Text(_isFollowed ? 'Siguiendo' : 'Seguir'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.m),
+              if (_publications != null && _publications!.isNotEmpty)
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 1.5,
+                    mainAxisSpacing: 1.5,
+                    childAspectRatio: 2 / 3,
+                  ),
+                  itemCount: _publications!.length,
+                  itemBuilder: (context, index) {
+                    final pub = _publications![index];
+                    final isLiked = _likedMap[pub.id] ?? false;
+                    final likeCount = _likeCountMap[pub.id] ?? 0;
+                    return GestureDetector(
+                      onTap: () => _openViewer(index),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Container(
+                            color: AppColors.surfaceHighlight,
+                            child: pub.imageUrls.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: pub.imageUrls.first,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, _) => Container(color: AppColors.surfaceHighlight),
+                                    errorWidget: (_, _, _) => Container(color: AppColors.surfaceHighlight, child: const Icon(Icons.broken_image_outlined, color: AppColors.textTertiary, size: 20)),
+                                  )
+                                : Container(
+                                    color: AppColors.surfaceHighlight,
+                                    child: Center(
+                                      child: Icon(Icons.image_outlined, color: AppColors.textTertiary.withValues(alpha: 0.4), size: 24),
+                                    ),
+                                  ),
+                          ),
+                          Positioned(
+                            left: 6,
+                            bottom: 6,
+                            child: GestureDetector(
+                              onTap: () => _toggleLike(pub.id),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isLiked ? Icons.favorite : Icons.favorite_border,
+                                    color: isLiked ? AppColors.error : Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '$likeCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.menu_book_outlined, size: 64, color: AppColors.textTertiary.withValues(alpha: 0.3)),
+                        const SizedBox(height: AppSpacing.m),
+                        Text('Sin publicaciones', style: AppTypography.titleMedium.copyWith(color: AppColors.textTertiary.withValues(alpha: 0.5))),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 96),
+            ],
+          ),
         ),
+      ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('A2', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
       ),
     );
   }

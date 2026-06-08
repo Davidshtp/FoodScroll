@@ -3,6 +3,24 @@ import { Order } from '../../../domain/entities/order.entity';
 import { OrderRepository, ORDER_REPOSITORY } from '../../../domain/repositories/order.repository';
 import { RestaurantPort, RESTAURANT_PORT } from '../../ports/restaurant.port';
 import { OrderNotFoundError, UnauthorizedOrderAccessError } from '../../../domain/errors/domain.errors';
+import { RestaurantInfoPort, RESTAURANT_INFO_PORT } from '../../ports/restaurant-info.port';
+import { CustomerInfoPort, CUSTOMER_INFO_PORT } from '../../ports/customer-info.port';
+
+export interface EnrichedOrderDetail {
+  order: Order;
+  restaurant: {
+    id: string;
+    name: string;
+    logoUrl: string;
+  } | null;
+  customer: {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    avatarUrl: string | null;
+  } | null;
+}
 
 export interface GetOrderInput {
   orderId: string;
@@ -12,7 +30,7 @@ export interface GetOrderInput {
 }
 
 export interface GetOrderOutput {
-  order: Order;
+  order: EnrichedOrderDetail;
 }
 
 @Injectable()
@@ -20,6 +38,8 @@ export class GetOrderUseCase {
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: OrderRepository,
     @Inject(RESTAURANT_PORT) private readonly restaurantPort: RestaurantPort,
+    @Inject(RESTAURANT_INFO_PORT) private readonly restaurantInfoPort: RestaurantInfoPort,
+    @Inject(CUSTOMER_INFO_PORT) private readonly customerInfoPort: CustomerInfoPort,
   ) {}
 
   async execute(input: GetOrderInput): Promise<GetOrderOutput> {
@@ -43,6 +63,33 @@ export class GetOrderUseCase {
       throw new UnauthorizedOrderAccessError(input.orderId);
     }
 
-    return { order };
+    const [restaurant, customer] = await Promise.all([
+      this.restaurantInfoPort.getRestaurantInfo(order.restaurantId).catch(() => null),
+      order.customerId
+        ? this.customerInfoPort.getCustomerInfo(order.customerId).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      order: {
+        order,
+        restaurant: restaurant
+          ? {
+              id: restaurant.id,
+              name: restaurant.name,
+              logoUrl: restaurant.logoUrl,
+            }
+          : null,
+        customer: customer
+          ? {
+              userId: customer.profile.userId,
+              firstName: customer.profile.firstName,
+              lastName: customer.profile.lastName,
+              phone: customer.profile.phone,
+              avatarUrl: customer.profile.avatarUrl,
+            }
+          : null,
+      },
+    };
   }
 }

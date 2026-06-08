@@ -14,11 +14,11 @@ export class ToggleLikeUseCase {
     appStatus: string,
     publicationId: string,
   ): Promise<{ liked: boolean; count: number }> {
-    if (userRole !== 'CUSTOMER') {
+    if (userRole !== 'CUSTOMER' && userRole !== 'RESTAURANT') {
       throw new ForbiddenException('Solo los clientes pueden dar like');
     }
 
-    if (appStatus !== 'COMPLETED') {
+    if (userRole === 'CUSTOMER' && appStatus !== 'COMPLETED') {
       throw new ForbiddenException('Debes completar tu perfil para dar like');
     }
 

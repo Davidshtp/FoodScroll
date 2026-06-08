@@ -11,6 +11,7 @@ interface JwtPayload {
   appStatus?: string | null;
   tokenVersion?: number;
   type?: string;
+  isActive?: boolean;
 }
 
 @Injectable()
@@ -44,6 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       client: payload.client,
       appStatus: payload.appStatus ?? null,
       tokenVersion: payload.tokenVersion,
+      isActive: payload.isActive ?? false,
     };
   }
 }

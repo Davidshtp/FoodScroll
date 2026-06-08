@@ -102,6 +102,27 @@ class RestaurantService {
     }
   }
 
+  Future<RestaurantProfile> fetchPublicProfile(String restaurantId) async {
+    try {
+      final response = await _apiService.get('/restaurant/public/$restaurantId');
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        return RestaurantProfile.fromJson(data);
+      }
+      throw RestaurantProfileException(
+        message: 'Perfil de restaurante no encontrado',
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        throw RestaurantProfileException(
+          statusCode: 404,
+          message: 'Perfil de restaurante no encontrado',
+        );
+      }
+      throw RestaurantProfileException.fromApi(e);
+    }
+  }
+
   Future<RestaurantProfile> fetchProfile() async {
     try {
       final response = await _apiService.get('/restaurant/profile');

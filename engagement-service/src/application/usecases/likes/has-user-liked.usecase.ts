@@ -13,7 +13,7 @@ export class HasUserLikedUseCase {
     userRole: string,
     publicationId: string,
   ): Promise<{ liked: boolean }> {
-    if (userRole !== 'CUSTOMER') {
+    if (userRole !== 'CUSTOMER' && userRole !== 'RESTAURANT') {
       throw new ForbiddenException('Solo los clientes pueden verificar likes');
     }
 

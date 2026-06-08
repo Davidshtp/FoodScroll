@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../models/address_model.dart';
+import '../../../services/address_service.dart';
 import '../../../services/order_service.dart';
 import '../../../state/cart_provider.dart';
 import '../../../theme/app_colors.dart';
@@ -78,6 +80,7 @@ class _RestaurantCartSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final subtotal = items.fold(0.0, (s, i) => s + i.totalPrice);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -94,11 +97,15 @@ class _RestaurantCartSection extends ConsumerWidget {
           const Divider(height: 1, color: AppColors.divider),
           ...items.map((item) => _CartItemCard(item: item)),
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.m),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.s, AppSpacing.m, AppSpacing.sm),
+            child: Text('Subtotal: \$${subtotal.toStringAsFixed(0)}', style: AppTypography.bodyMedium.copyWith(color: AppColors.textTertiary)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.m, 0, AppSpacing.m, AppSpacing.m),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => _checkout(context, ref, items),
+                onPressed: () => _checkout(context, ref),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -106,7 +113,7 @@ class _RestaurantCartSection extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: Text(
-                  'Ordenar en $restaurantName',
+                  'Ordenar todo',
                   style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w800, letterSpacing: 1.2),
                 ),
               ),
@@ -117,29 +124,74 @@ class _RestaurantCartSection extends ConsumerWidget {
     );
   }
 
-  Future<void> _checkout(BuildContext context, WidgetRef ref, List<CartItem> items) async {
+  Future<void> _checkout(BuildContext context, WidgetRef ref) async {
+    final addresses = await AddressService().fetchAddresses();
+    if (!context.mounted) return;
+
+    if (addresses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Agrega una dirección desde tu perfil primero')),
+      );
+      return;
+    }
+
+    CustomerAddress? selectedAddress;
+    if (addresses.length == 1) {
+      selectedAddress = addresses.first;
+    } else {
+      selectedAddress = await showModalBottomSheet<CustomerAddress>(
+        context: context,
+        backgroundColor: AppColors.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.textTertiary, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 16),
+              Text('Seleccionar dirección', style: AppTypography.titleLarge),
+              const SizedBox(height: 8),
+              ...addresses.map((addr) => ListTile(
+                leading: const Icon(Icons.location_on, color: AppColors.primary),
+                title: Text(addr.alias, style: AppTypography.bodyLarge),
+                subtitle: Text('${addr.mainAddress}, ${addr.neighborhood}', style: AppTypography.bodyMedium.copyWith(color: AppColors.textTertiary)),
+                onTap: () => Navigator.pop(ctx, addr),
+              )),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (selectedAddress == null || !context.mounted) return;
+
+    final items = ref.read(cartProvider);
+    if (items.isEmpty) return;
+
+    final total = items.fold(0.0, (s, i) => s + i.totalPrice);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         title: const Text('Confirmar pedido'),
-        content: Text('¿Enviar pedido a $restaurantName por \$${items.fold(0.0, (s, i) => s + i.totalPrice).toStringAsFixed(0)}?'),
+        content: Text('Enviar pedido a ${selectedAddress!.alias} por \$${total.toStringAsFixed(0)}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ordenar', style: TextStyle(color: AppColors.primary))),
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !context.mounted) return;
 
     try {
       await ref.read(orderServiceProvider).createOrder(
-        restaurantId: items.first.restaurantId,
-        items: items.map((i) => i.toOrderItem()).toList(),
+        customerAddressId: selectedAddress.id,
+        orderItems: items.map((i) => i.toOrderItem()).toList(),
       );
-      for (final item in items) {
-        ref.read(cartProvider.notifier).removeItem(item.publicationId);
-      }
+      ref.read(cartProvider.notifier).clear();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pedido realizado con éxito')),

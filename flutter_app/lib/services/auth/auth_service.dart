@@ -19,6 +19,32 @@ class AuthService {
     await _storageService.clearClientType();
   }
 
+  Future<LoginResponse> loginWithGoogle(String idToken) async {
+    final clientType = await _storageService.getClientType();
+    if (clientType == null) {
+      throw ApiException(
+        error: '',
+        message: 'Selecciona un tipo de cuenta antes de iniciar sesión',
+      );
+    }
+
+    final response = await _apiService.post(
+      '/auth/google',
+      data: {
+        'idToken': idToken,
+        'client': clientType,
+      },
+      sendAuth: false,
+    );
+
+    final loginResponse = LoginResponse.fromJson(
+      (response.data as Map<String, dynamic>?) ?? const {},
+    );
+
+    await _persistSession(loginResponse);
+    return loginResponse;
+  }
+
   Future<LoginResponse> login(String email, String password) async {
     final clientType = await _storageService.getClientType();
     if (clientType == null) {

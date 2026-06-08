@@ -18,7 +18,7 @@ class OrdersListPage extends ConsumerStatefulWidget {
 
 class _OrdersListPageState extends ConsumerState<OrdersListPage>
     with SingleTickerProviderStateMixin {
-  List<RestaurantOrder>? _allOrders;
+  List<EnrichedOrder>? _enrichedOrders;
   bool _isLoading = true;
   late TabController _tabController;
   StreamSubscription<Map<String, dynamic>>? _wsSubscription;
@@ -53,7 +53,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
       final response = await service.fetchOrders();
       if (mounted) {
         setState(() {
-          _allOrders = response.orders;
+          _enrichedOrders = response.orders;
           _isLoading = false;
         });
       }
@@ -62,10 +62,10 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
     }
   }
 
-  List<RestaurantOrder> _ordersByStatus(List<String> statuses) {
-    if (_allOrders == null) return [];
-    return _allOrders!
-        .where((o) => statuses.contains(o.status.toUpperCase()))
+  List<EnrichedOrder> _ordersByStatus(List<String> statuses) {
+    if (_enrichedOrders == null) return [];
+    return _enrichedOrders!
+        .where((eo) => statuses.contains(eo.order.status.toUpperCase()))
         .toList();
   }
 
@@ -74,7 +74,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
       final updated = await ref.read(orderServiceProvider).confirmOrder(orderId);
       if (mounted) {
         setState(() {
-          _allOrders = _allOrders!.map((o) => o.id == orderId ? updated : o).toList();
+          _enrichedOrders = _enrichedOrders!.map((eo) => eo.order.id == orderId ? updated : eo).toList();
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pedido confirmado')),
@@ -108,15 +108,20 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
       await ref.read(orderServiceProvider).rejectOrder(orderId);
       if (mounted) {
         setState(() {
-          _allOrders = _allOrders!.map((o) => o.id == orderId
-              ? RestaurantOrder(
-                  id: o.id, customerId: o.customerId, restaurantId: o.restaurantId,
-                  deliveryId: o.deliveryId, customerAddressId: o.customerAddressId,
-                  status: 'CANCELLED', totalAmount: o.totalAmount,
-                  orderItems: o.orderItems, createdAt: o.createdAt,
-                  updatedAt: DateTime.now().toIso8601String(),
+          _enrichedOrders = _enrichedOrders!.map((eo) => eo.order.id == orderId
+              ? EnrichedOrder(
+                  order: RestaurantOrder(
+                    id: eo.order.id, customerId: eo.order.customerId,
+                    restaurantId: eo.order.restaurantId,
+                    deliveryId: eo.order.deliveryId, customerAddressId: eo.order.customerAddressId,
+                    status: 'CANCELLED', totalAmount: eo.order.totalAmount,
+                    orderItems: eo.order.orderItems, createdAt: eo.order.createdAt,
+                    updatedAt: DateTime.now().toIso8601String(),
+                  ),
+                  customer: eo.customer,
+                  restaurant: eo.restaurant,
                 )
-              : o).toList();
+              : eo).toList();
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pedido rechazado')),
@@ -136,7 +141,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
       final updated = await ref.read(orderServiceProvider).startPreparing(orderId);
       if (mounted) {
         setState(() {
-          _allOrders = _allOrders!.map((o) => o.id == orderId ? updated : o).toList();
+          _enrichedOrders = _enrichedOrders!.map((eo) => eo.order.id == orderId ? updated : eo).toList();
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Preparando pedido')),
@@ -156,7 +161,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
       final updated = await ref.read(orderServiceProvider).markReady(orderId);
       if (mounted) {
         setState(() {
-          _allOrders = _allOrders!.map((o) => o.id == orderId ? updated : o).toList();
+          _enrichedOrders = _enrichedOrders!.map((eo) => eo.order.id == orderId ? updated : eo).toList();
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pedido listo para recoger')),
@@ -193,7 +198,9 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
           ],
         ),
       ),
-      body: _isLoading
+      body: Stack(
+        children: [
+          _isLoading
           ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
           : RefreshIndicator(
               color: AppColors.primary,
@@ -219,11 +226,25 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
                 ],
               ),
             ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('A6', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSection({
-    required List<RestaurantOrder> orders,
+    required List<EnrichedOrder> orders,
     required String emptyMsg,
     required String section,
   }) {
@@ -254,11 +275,12 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
       padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.s, AppSpacing.m, 96),
       itemCount: orders.length,
       itemBuilder: (context, index) {
-        final order = orders[index];
+        final enriched = orders[index];
+        final order = enriched.order;
         return _OrderCard(
-          order: order,
+          enrichedOrder: enriched,
           section: section,
-          onTap: () => context.push('/restaurant/orders/${order.id}', extra: order),
+          onTap: () => context.push('/restaurant/orders/${order.id}', extra: enriched),
           onConfirm: section == 'pending' ? () => _confirmOrder(order.id) : null,
           onReject: section == 'pending' ? () => _rejectOrder(order.id) : null,
           onPrepare: order.status.toUpperCase() == 'CONFIRMED'
@@ -274,7 +296,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
 }
 
 class _OrderCard extends StatelessWidget {
-  final RestaurantOrder order;
+  final EnrichedOrder enrichedOrder;
   final String section;
   final VoidCallback onTap;
   final VoidCallback? onConfirm;
@@ -283,7 +305,7 @@ class _OrderCard extends StatelessWidget {
   final VoidCallback? onReady;
 
   const _OrderCard({
-    required this.order,
+    required this.enrichedOrder,
     required this.section,
     required this.onTap,
     this.onConfirm,
@@ -292,9 +314,28 @@ class _OrderCard extends StatelessWidget {
     this.onReady,
   });
 
+  RestaurantOrder get order => enrichedOrder.order;
+
+  String get _customerDisplay => enrichedOrder.customer?.fullName.isNotEmpty == true
+      ? enrichedOrder.customer!.fullName
+      : order.customerId;
+
+  Color get _statusColor {
+    switch (order.status.toUpperCase()) {
+      case 'PENDING': return AppColors.warning;
+      case 'CONFIRMED': return AppColors.info;
+      case 'PREPARING': return AppColors.accent;
+      case 'READY_FOR_PICKUP': return AppColors.success;
+      case 'ACCEPTED': return const Color(0xFF7C4DFF);
+      case 'OUT_FOR_DELIVERY': return AppColors.info;
+      case 'DELIVERED': return AppColors.textTertiary;
+      case 'CANCELLED': return AppColors.error;
+      default: return AppColors.textSecondary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Material(
@@ -311,18 +352,27 @@ class _OrderCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('#${order.id.split('-').first}',
-                        style: AppTypography.titleMedium),
+                    Text('#${order.id.split('-').first}', style: AppTypography.titleMedium),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s, vertical: AppSpacing.xs),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s, vertical: AppSpacing.xs),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
+                        color: _statusColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(AppRadius.s),
                       ),
                       child: Text(order.statusLabel,
-                          style: AppTypography.labelSmall.copyWith(
-                              color: color, fontWeight: FontWeight.w600)),
+                          style: AppTypography.labelSmall.copyWith(color: _statusColor, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.s),
+                Row(
+                  children: [
+                    Icon(Icons.person, size: 14, color: AppColors.textSecondary),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(_customerDisplay,
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
                   ],
                 ),
@@ -332,14 +382,9 @@ class _OrderCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Text('${item.quantity}x ',
-                          style: AppTypography.bodyMedium.copyWith(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w600)),
-                      Expanded(
-                        child: Text(item.productName,
-                            style: AppTypography.bodyMedium,
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                      Expanded(child: Text(item.productName,
+                          style: AppTypography.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
                     ],
                   ),
                 )),
@@ -347,19 +392,16 @@ class _OrderCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: AppSpacing.xs),
                     child: Text('+${order.orderItems.length - 2} más',
-                        style: AppTypography.labelSmall.copyWith(
-                            color: AppColors.textTertiary)),
+                        style: AppTypography.labelSmall.copyWith(color: AppColors.textTertiary)),
                   ),
                 const SizedBox(height: AppSpacing.s),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(_formatDate(order.createdAt),
-                        style: AppTypography.labelSmall.copyWith(
-                            color: AppColors.textTertiary)),
+                        style: AppTypography.labelSmall.copyWith(color: AppColors.textTertiary)),
                     Text('\$${order.totalAmount.toStringAsFixed(0)}',
-                        style: AppTypography.titleMedium.copyWith(
-                            color: AppColors.accent)),
+                        style: AppTypography.titleMedium.copyWith(color: AppColors.accent)),
                   ],
                 ),
                 if (onConfirm != null || onReject != null || onPrepare != null || onReady != null) ...[
@@ -376,11 +418,9 @@ class _OrderCard extends StatelessWidget {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.success,
                                   foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  textStyle: AppTypography.labelLarge.copyWith(
-                                      fontWeight: FontWeight.w700, fontSize: 13),
+                                  textStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700, fontSize: 13),
                                 ),
                                 child: const Text('Aceptar'),
                               ),
@@ -397,11 +437,9 @@ class _OrderCard extends StatelessWidget {
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppColors.error,
                                   side: const BorderSide(color: AppColors.error),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  textStyle: AppTypography.labelLarge.copyWith(
-                                      fontWeight: FontWeight.w700, fontSize: 13),
+                                  textStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700, fontSize: 13),
                                 ),
                                 child: const Text('Rechazar'),
                               ),
@@ -421,11 +459,9 @@ class _OrderCard extends StatelessWidget {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.accent,
                                   foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  textStyle: AppTypography.labelLarge.copyWith(
-                                      fontWeight: FontWeight.w700, fontSize: 13),
+                                  textStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700, fontSize: 13),
                                 ),
                                 child: const Text('Preparar'),
                               ),
@@ -440,11 +476,9 @@ class _OrderCard extends StatelessWidget {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.success,
                                   foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  textStyle: AppTypography.labelLarge.copyWith(
-                                      fontWeight: FontWeight.w700, fontSize: 13),
+                                  textStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700, fontSize: 13),
                                 ),
                                 child: const Text('Listo'),
                               ),
@@ -459,29 +493,6 @@ class _OrderCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color get _statusColor {
-    switch (order.status.toUpperCase()) {
-      case 'PENDING':
-        return AppColors.warning;
-      case 'CONFIRMED':
-        return AppColors.info;
-      case 'PREPARING':
-        return AppColors.accent;
-      case 'READY_FOR_PICKUP':
-        return AppColors.success;
-      case 'ACCEPTED':
-        return const Color(0xFF7C4DFF);
-      case 'OUT_FOR_DELIVERY':
-        return AppColors.info;
-      case 'DELIVERED':
-        return AppColors.textTertiary;
-      case 'CANCELLED':
-        return AppColors.error;
-      default:
-        return AppColors.textSecondary;
-    }
   }
 
   String _formatDate(String dateStr) {

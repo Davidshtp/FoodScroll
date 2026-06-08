@@ -29,6 +29,9 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
   int _followersCount = 0;
   bool _showFullDescription = false;
 
+  final Map<String, bool> _likedMap = {};
+  final Map<String, int> _likeCountMap = {};
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +53,7 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
       final engagement = ref.read(engagementServiceProvider);
       int followers = 0;
       try {
-        followers = await engagement.followersCount(me.id);
+        followers = await engagement.followersCount(profile.id);
       } catch (_) {}
 
       if (mounted) {
@@ -62,8 +65,58 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
           _isLoading = false;
         });
       }
+
+      await _initEngagementData(pubs, engagement);
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _initEngagementData(List<RestaurantPublication> pubs, EngagementService engagement) async {
+    if (pubs.isEmpty) return;
+    try {
+      final likeResults = await Future.wait(
+        pubs.map((pub) => Future.wait([
+          engagement.likeCount(pub.id).catchError((_) => 0),
+          engagement.checkLike(pub.id).catchError((_) => false),
+        ])),
+      );
+      if (mounted) {
+        setState(() {
+          for (int i = 0; i < pubs.length; i++) {
+            _likeCountMap[pubs[i].id] = likeResults[i][0] as int;
+            _likedMap[pubs[i].id] = likeResults[i][1] as bool;
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleLike(String publicationId) async {
+    final engagement = ref.read(engagementServiceProvider);
+    final currentLiked = _likedMap[publicationId] ?? false;
+    final currentCount = _likeCountMap[publicationId] ?? 0;
+
+    setState(() {
+      _likedMap[publicationId] = !currentLiked;
+      _likeCountMap[publicationId] = currentLiked ? currentCount - 1 : currentCount + 1;
+    });
+
+    try {
+      final result = await engagement.toggleLike(publicationId);
+      if (mounted) {
+        setState(() {
+          _likedMap[publicationId] = result.liked;
+          _likeCountMap[publicationId] = result.count;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _likedMap[publicationId] = currentLiked;
+          _likeCountMap[publicationId] = currentCount;
+        });
+      }
     }
   }
 
@@ -120,7 +173,9 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
     final hasDescription = profile.description.isNotEmpty;
     final shouldTruncate = profile.description.length > 120;
 
-    return FuturisticBackground(
+    return Stack(
+      children: [
+        FuturisticBackground(
       child: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: _loadData,
@@ -256,6 +311,8 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
                   itemCount: _publications.length,
                   itemBuilder: (context, index) {
                     final pub = _publications[index];
+                    final isLiked = _likedMap[pub.id] ?? false;
+                    final likeCount = _likeCountMap[pub.id] ?? 0;
                     return GestureDetector(
                       onTap: () {
                         Navigator.push(
@@ -270,21 +327,53 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
                           ),
                         );
                       },
-                      child: Container(
-                        color: AppColors.surfaceHighlight,
-                        child: pub.imageUrls.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: pub.imageUrls.first,
-                                fit: BoxFit.cover,
-                                placeholder: (_, _) => Container(color: AppColors.surfaceHighlight),
-                                errorWidget: (_, _, _) => Container(color: AppColors.surfaceHighlight, child: const Icon(Icons.broken_image_outlined, color: AppColors.textTertiary, size: 20)),
-                              )
-                            : Container(
-                                color: AppColors.surfaceHighlight,
-                                child: Center(
-                                  child: Icon(Icons.image_outlined, color: AppColors.textTertiary.withValues(alpha: 0.4), size: 24),
-                                ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Container(
+                            color: AppColors.surfaceHighlight,
+                            child: pub.imageUrls.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: pub.imageUrls.first,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, _) => Container(color: AppColors.surfaceHighlight),
+                                    errorWidget: (_, _, _) => Container(color: AppColors.surfaceHighlight, child: const Icon(Icons.broken_image_outlined, color: AppColors.textTertiary, size: 20)),
+                                  )
+                                : Container(
+                                    color: AppColors.surfaceHighlight,
+                                    child: Center(
+                                      child: Icon(Icons.image_outlined, color: AppColors.textTertiary.withValues(alpha: 0.4), size: 24),
+                                    ),
+                                  ),
+                          ),
+                          Positioned(
+                            left: 6,
+                            bottom: 6,
+                            child: GestureDetector(
+                              onTap: () => _toggleLike(pub.id),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isLiked ? Icons.favorite : Icons.favorite_border,
+                                    color: isLiked ? AppColors.error : Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '$likeCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -307,6 +396,20 @@ class _RestaurantProfilePageState extends ConsumerState<RestaurantProfilePage> {
           ),
         ),
       ),
+      ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('A1', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
     );
   }
 }

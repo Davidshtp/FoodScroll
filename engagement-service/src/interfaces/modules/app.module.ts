@@ -29,6 +29,11 @@ import { LIKE_REPOSITORY } from '../../domain/repositories/like.repository';
 import { FOLLOWER_REPOSITORY } from '../../domain/repositories/follower.repository';
 import { COMMENT_REPOSITORY } from '../../domain/repositories/comment.repository';
 
+import { CUSTOMER_INFO_PORT } from '../../application/ports/customer-info.port';
+import { RESTAURANT_INFO_PORT } from '../../application/ports/restaurant-info.port';
+import { CustomerInfoClient } from '../../infrastructure/http/customer-info.client';
+import { RestaurantInfoClient } from '../../infrastructure/http/restaurant-info.client';
+
 import { ToggleLikeUseCase } from '../../application/usecases/likes/toggle-like.usecase';
 import { GetLikeCountUseCase } from '../../application/usecases/likes/get-like-count.usecase';
 import { HasUserLikedUseCase } from '../../application/usecases/likes/has-user-liked.usecase';
@@ -54,10 +59,7 @@ import { JwtStrategy } from '../http/strategies';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      envFilePath: '.env',
-      isGlobal: true,
-    }),
+    ConfigModule.forRoot({ envFilePath: '.env', isGlobal: true }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -84,18 +86,13 @@ import { JwtStrategy } from '../http/strategies';
   ],
   providers: [
     // Repositories
-    {
-      provide: LIKE_REPOSITORY,
-      useClass: Neo4jLikeRepository,
-    },
-    {
-      provide: FOLLOWER_REPOSITORY,
-      useClass: Neo4jFollowerRepository,
-    },
-    {
-      provide: COMMENT_REPOSITORY,
-      useClass: MongoDBCommentRepository,
-    },
+    { provide: LIKE_REPOSITORY, useClass: Neo4jLikeRepository },
+    { provide: FOLLOWER_REPOSITORY, useClass: Neo4jFollowerRepository },
+    { provide: COMMENT_REPOSITORY, useClass: MongoDBCommentRepository },
+
+    // External service clients
+    { provide: CUSTOMER_INFO_PORT, useClass: CustomerInfoClient },
+    { provide: RESTAURANT_INFO_PORT, useClass: RestaurantInfoClient },
 
     // Use Cases
     ToggleLikeUseCase,
@@ -115,30 +112,15 @@ import { JwtStrategy } from '../http/strategies';
     JwtStrategy,
 
     // Global Guards
-    {
-      provide: APP_GUARD,
-      useClass: ServiceSecretGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
+    { provide: APP_GUARD, useClass: ServiceSecretGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
 
     // Global Interceptors
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: LoggingInterceptor,
-    },
+    { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
 
     // Global Filters
-    {
-      provide: APP_FILTER,
-      useClass: AllExceptionsFilter,
-    },
-    {
-      provide: APP_FILTER,
-      useClass: DomainExceptionFilter,
-    },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_FILTER, useClass: DomainExceptionFilter },
   ],
 })
 export class AppModule {}

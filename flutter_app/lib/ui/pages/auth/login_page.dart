@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_typography.dart';
 import '../../../theme/app_colors.dart';
@@ -34,6 +35,30 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() => _errorMessage = null);
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) return;
+      final googleAuth = await googleUser.authentication;
+      if (googleAuth.idToken == null) {
+        setState(() => _errorMessage = 'No se pudo obtener el token de Google');
+        return;
+      }
+      await ref.read(authControllerProvider.notifier).loginWithGoogle(googleAuth.idToken!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login exitoso')),
+        );
+      }
+      await _handlePostLogin();
+    } on ApiException catch (e) {
+      setState(() => _errorMessage = e.displayMessage);
+    } catch (e) {
+      setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+    }
   }
 
   Future<void> _login() async {
@@ -209,9 +234,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _socialButton(Icons.g_mobiledata, 'GOOGLE'), // Ideally use SVG
-                  const SizedBox(width: 20),
-                  _socialButton(Icons.facebook, 'FACEBOOK'),
+                  GestureDetector(
+                    onTap: _loginWithGoogle,
+                    child: _socialButton(Icons.g_mobiledata, 'GOOGLE'),
+                  ),
                 ],
               ),
 

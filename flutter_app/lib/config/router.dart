@@ -31,6 +31,9 @@ import '../ui/pages/customer/cart_page.dart';
 import '../ui/pages/customer/customer_orders_page.dart';
 import '../ui/pages/customer/customer_order_detail_page.dart';
 import '../ui/pages/customer/restaurant_public_profile_page.dart';
+import '../ui/pages/delivery/delivery_home_page.dart';
+import '../ui/pages/delivery/delivery_order_detail_page.dart';
+import '../models/delivery_order_model.dart';
 
 
 final router = GoRouter(
@@ -139,8 +142,8 @@ final router = GoRouter(
     GoRoute(
       path: '/restaurant/orders/:id',
       builder: (context, state) {
-        final order = state.extra as RestaurantOrder?;
-        if (order != null) return OrderDetailPage(order: order);
+        final enriched = state.extra as EnrichedOrder?;
+        if (enriched != null) return OrderDetailPage(enrichedOrder: enriched);
         return const OrdersListPage();
       },
     ),
@@ -163,8 +166,8 @@ final router = GoRouter(
     GoRoute(
       path: '/customer/orders/:id',
       builder: (context, state) {
-        final order = state.extra as RestaurantOrder?;
-        if (order != null) return CustomerOrderDetailPage(order: order);
+        final enriched = state.extra as EnrichedOrder?;
+        if (enriched != null) return CustomerOrderDetailPage(enrichedOrder: enriched);
         return const CustomerOrdersPage();
       },
     ),
@@ -173,6 +176,18 @@ final router = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id'] ?? '';
         return RestaurantPublicProfilePage(restaurantId: id);
+      },
+    ),
+    GoRoute(
+      path: '/delivery/orders',
+      builder: (context, state) => const DeliveryHomePage(),
+    ),
+    GoRoute(
+      path: '/delivery/orders/:id',
+      builder: (context, state) {
+        final delivery = state.extra as DeliveryOrder?;
+        if (delivery != null) return DeliveryOrderDetailPage(deliveryOrder: delivery);
+        return const DeliveryHomePage();
       },
     ),
   ],

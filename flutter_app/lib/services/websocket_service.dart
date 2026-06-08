@@ -19,10 +19,10 @@ class WebSocketService {
     if (token == null || token.isEmpty) return;
 
     _socket = io.io(
-      'http://localhost:3000',
+      'http://localhost:3000?token=$token',
       io.OptionBuilder()
           .setTransports(['websocket'])
-          .setAuth({'access_token': token})
+          .setAuth({'token': token})
           .enableReconnection()
           .build(),
     );

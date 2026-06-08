@@ -32,6 +32,9 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <meta-data
+            android:name="com.google.gms.auth.default_web_client_id"
+            android:value="REEMPLAZAR_CON_TU_CLIENTE_ID" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

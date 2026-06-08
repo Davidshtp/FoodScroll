@@ -9,7 +9,6 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  ForbiddenException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { Role } from '../../config/constants';
@@ -28,7 +27,7 @@ export class EngagementProxyController {
 
   // ── Likes (solo CUSTOMER) ──
 
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.RESTAURANT)
   @UseGuards(IsActiveGuard)
   @Post('likes/toggle/:publicationId')
   @HttpCode(HttpStatus.OK)
@@ -45,7 +44,7 @@ export class EngagementProxyController {
     return result.data;
   }
 
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.RESTAURANT)
   @Get('likes/count/:publicationId')
   async getLikeCount(
     @Param('publicationId') publicationId: string,
@@ -60,7 +59,7 @@ export class EngagementProxyController {
     return result.data;
   }
 
-  @Roles(Role.CUSTOMER)
+  @Roles(Role.CUSTOMER, Role.RESTAURANT)
   @Get('likes/check/:publicationId')
   async hasUserLiked(
     @Param('publicationId') publicationId: string,
@@ -86,31 +85,19 @@ export class EngagementProxyController {
     @Req() req: Request,
     @CurrentUser() user: any,
   ) {
-    const targetUser = await this.httpClient.forward<{ id: string; role: string; email?: string }>({
-      method: 'GET',
-      service: 'IDENTITY',
-      path: `/users/${userId}`,
-    });
+    let displayName = userId;
 
-    if (targetUser.data.role === Role.DELIVERY) {
-      throw new ForbiddenException('No puedes seguir a un usuario de tipo DELIVERY');
-    }
-
-    let displayName = targetUser.data.email || userId;
-
-    if (targetUser.data.role === Role.RESTAURANT) {
-      try {
-        const restaurantInfo = await this.httpClient.forward<{ restaurants: { id: string; name: string }[] }>({
-          method: 'GET',
-          service: 'RESTAURANT',
-          path: `/restaurant/internal/by-user-ids?ids=${userId}`,
-        });
-        if (restaurantInfo.data.restaurants?.length > 0) {
-          displayName = restaurantInfo.data.restaurants[0].name;
-        }
-      } catch {
-        // fallback al email si falla la consulta del restaurante
+    try {
+      const profileResp = await this.httpClient.forward<{ name?: string }>({
+        method: 'GET',
+        service: 'RESTAURANT',
+        path: `/restaurant/public/${userId}`,
+      });
+      if (profileResp.data?.name) {
+        displayName = profileResp.data.name;
       }
+    } catch {
+      // fallback: userId como displayName
     }
 
     const result = await this.proxy.forwardAuthenticated(req, user, {

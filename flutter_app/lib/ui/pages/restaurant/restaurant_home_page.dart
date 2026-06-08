@@ -20,7 +20,7 @@ class RestaurantHomePage extends ConsumerStatefulWidget {
 
 class _RestaurantHomePageState extends ConsumerState<RestaurantHomePage> {
   List<RestaurantPublication>? _publications;
-  List<RestaurantOrder>? _orders;
+  List<EnrichedOrder>? _orders;
   bool _isLoading = true;
 
   @override
@@ -50,7 +50,9 @@ class _RestaurantHomePageState extends ConsumerState<RestaurantHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return FuturisticBackground(
+    return Stack(
+      children: [
+        FuturisticBackground(
       child: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: _loadData,
@@ -127,11 +129,11 @@ class _RestaurantHomePageState extends ConsumerState<RestaurantHomePage> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.s),
-                  ...(_orders!.take(3).map((order) => _OrderMiniCard(
-                    order: order,
+                  ...(_orders!.take(3).map((eo) => _OrderMiniCard(
+                    order: eo.order,
                     onTap: () => context.push(
-                      '/restaurant/orders/${order.id}',
-                      extra: order,
+                      '/restaurant/orders/${eo.order.id}',
+                      extra: eo,
                     ),
                   ))),
                 ],
@@ -140,6 +142,20 @@ class _RestaurantHomePageState extends ConsumerState<RestaurantHomePage> {
           ),
         ),
       ),
+      ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('A8', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
     );
   }
 }

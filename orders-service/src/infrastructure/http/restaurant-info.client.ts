@@ -26,7 +26,11 @@ export class RestaurantInfoClient implements RestaurantInfoPort {
     };
     try {
       const response = await this.httpClient.get(`/restaurant/internal/${restaurantId}`, { headers });
-      return response.data;
+      const data = response.data;
+      return {
+        ...data.restaurant,
+        address: data.address ?? null,
+      };
     } catch (error) {
       this.logger.error(`Failed to get restaurant info ${restaurantId}: ${error.message}`);
       throw new Error('Restaurant not found');

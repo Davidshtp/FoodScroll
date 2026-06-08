@@ -3,15 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../models/order_model.dart';
 import '../../../services/order_service.dart';
+import '../../../services/restaurant_service.dart';
 import '../../../services/websocket_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_typography.dart';
 
 class CustomerOrderDetailPage extends ConsumerStatefulWidget {
-  final RestaurantOrder order;
+  final EnrichedOrder enrichedOrder;
 
-  const CustomerOrderDetailPage({super.key, required this.order});
+  const CustomerOrderDetailPage({super.key, required this.enrichedOrder});
 
   @override
   ConsumerState<CustomerOrderDetailPage> createState() => _CustomerOrderDetailPageState();
@@ -19,13 +20,34 @@ class CustomerOrderDetailPage extends ConsumerStatefulWidget {
 
 class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPage> {
   late RestaurantOrder _order;
+  EnrichedRestaurantInfo? _restaurant;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _order = widget.order;
+    _order = widget.enrichedOrder.order;
+    _restaurant = widget.enrichedOrder.restaurant;
     _setupWebSocket();
+    if (_restaurant == null) {
+      _enrichRestaurant();
+    }
+  }
+
+  Future<void> _enrichRestaurant() async {
+    try {
+      final restaurantService = ref.read(restaurantServiceProvider);
+      final profile = await restaurantService.fetchPublicProfile(_order.restaurantId);
+      if (mounted) {
+        setState(() {
+          _restaurant = EnrichedRestaurantInfo(
+            id: profile.id,
+            name: profile.name,
+            logoUrl: profile.logoUrl ?? '',
+          );
+        });
+      }
+    } catch (_) {}
   }
 
   void _setupWebSocket() {
@@ -108,6 +130,8 @@ class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPag
     }
   }
 
+  String get _restaurantName => _restaurant?.name ?? _order.restaurantId;
+
   @override
   Widget build(BuildContext context) {
     final status = _order.status.toUpperCase();
@@ -122,7 +146,9 @@ class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPag
           onPressed: () => context.pop(),
         ),
       ),
-      body: SingleChildScrollView(
+      body: Stack(
+        children: [
+          SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.s, AppSpacing.m, 96),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,7 +157,7 @@ class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPag
             const SizedBox(height: AppSpacing.l),
             Text('DETALLE DEL PEDIDO', style: AppTypography.labelSmall.copyWith(color: AppColors.accent, letterSpacing: 1.5)),
             const SizedBox(height: AppSpacing.s),
-            _InfoTile(label: 'Restaurante', value: _order.restaurantId, isId: true),
+            _InfoTile(label: 'Restaurante', value: _restaurantName, isId: false),
             _InfoTile(label: 'Fecha', value: _formatDate(_order.createdAt)),
             _InfoTile(label: 'Total', value: '\$${_order.totalAmount.toStringAsFixed(0)}', valueColor: AppColors.accent),
             const SizedBox(height: AppSpacing.l),
@@ -156,6 +182,20 @@ class _CustomerOrderDetailPageState extends ConsumerState<CustomerOrderDetailPag
             ],
           ],
         ),
+      ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('A3', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
       ),
     );
   }

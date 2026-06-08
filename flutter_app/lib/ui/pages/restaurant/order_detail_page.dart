@@ -13,9 +13,9 @@ import '../../components/futuristic_background.dart';
 import '../../components/primary_button.dart';
 
 class OrderDetailPage extends ConsumerStatefulWidget {
-  final RestaurantOrder order;
+  final EnrichedOrder enrichedOrder;
 
-  const OrderDetailPage({super.key, required this.order});
+  const OrderDetailPage({super.key, required this.enrichedOrder});
 
   @override
   ConsumerState<OrderDetailPage> createState() => _OrderDetailPageState();
@@ -23,13 +23,15 @@ class OrderDetailPage extends ConsumerStatefulWidget {
 
 class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   late RestaurantOrder _order;
+  EnrichedCustomerInfo? _customer;
   bool _isLoading = false;
   StreamSubscription<Map<String, dynamic>>? _wsSubscription;
 
   @override
   void initState() {
     super.initState();
-    _order = widget.order;
+    _order = widget.enrichedOrder.order;
+    _customer = widget.enrichedOrder.customer;
     _setupWebSocket();
   }
 
@@ -137,8 +139,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         }
       } else {
         final result = await action();
-        if (mounted && result is RestaurantOrder) {
-          setState(() => _order = result);
+        if (mounted && result is EnrichedOrder) {
+          setState(() {
+            _order = result.order;
+            _customer = result.customer ?? _customer;
+          });
         }
       }
       if (mounted) {
@@ -156,6 +161,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  String get _customerName => _customer?.fullName.isNotEmpty == true
+      ? _customer!.fullName
+      : _order.customerId;
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +184,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: FuturisticBackground(
+      body: Stack(
+        children: [
+          FuturisticBackground(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.m, AppSpacing.s, AppSpacing.m, 96,
@@ -195,8 +206,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               const SizedBox(height: AppSpacing.s),
               _InfoTile(
                 label: 'Cliente',
-                value: _order.customerId,
-                isId: true,
+                value: _customerName,
+                isId: false,
               ),
               _InfoTile(
                 label: 'Fecha',
@@ -219,9 +230,23 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ..._order.orderItems.map((item) => _ProductCard(item: item)),
               const SizedBox(height: AppSpacing.xl),
               _buildActions(status),
-            ],
-          ),
+          ],
         ),
+      ),
+      ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('A7', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
       ),
     );
   }

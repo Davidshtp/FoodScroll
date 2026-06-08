@@ -17,7 +17,7 @@ class CustomerOrdersPage extends ConsumerStatefulWidget {
 
 class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
     with SingleTickerProviderStateMixin {
-  List<RestaurantOrder>? _orders;
+  List<EnrichedOrder>? _enrichedOrders;
   bool _isLoading = true;
   late TabController _tabController;
 
@@ -49,7 +49,7 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
       final response = await ref.read(orderServiceProvider).fetchMyOrders();
       if (mounted) {
         setState(() {
-          _orders = response.orders;
+          _enrichedOrders = response.orders;
           _isLoading = false;
         });
       }
@@ -58,14 +58,18 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
     }
   }
 
-  List<RestaurantOrder> _activeOrders() {
-    if (_orders == null) return [];
-    return _orders!.where((o) => !['DELIVERED', 'CANCELLED'].contains(o.status.toUpperCase())).toList();
+  List<EnrichedOrder> _activeOrders() {
+    if (_enrichedOrders == null) return [];
+    return _enrichedOrders!
+        .where((eo) => !['DELIVERED', 'CANCELLED'].contains(eo.order.status.toUpperCase()))
+        .toList();
   }
 
-  List<RestaurantOrder> _historyOrders() {
-    if (_orders == null) return [];
-    return _orders!.where((o) => ['DELIVERED', 'CANCELLED'].contains(o.status.toUpperCase())).toList();
+  List<EnrichedOrder> _historyOrders() {
+    if (_enrichedOrders == null) return [];
+    return _enrichedOrders!
+        .where((eo) => ['DELIVERED', 'CANCELLED'].contains(eo.order.status.toUpperCase()))
+        .toList();
   }
 
   Future<void> _cancelOrder(String orderId) async {
@@ -121,7 +125,9 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
           ],
         ),
       ),
-      body: _isLoading
+      body: Stack(
+        children: [
+          _isLoading
           ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
           : RefreshIndicator(
               color: AppColors.primary,
@@ -134,11 +140,25 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
                 ],
               ),
             ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('A4', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSection({
-    required List<RestaurantOrder> orders,
+    required List<EnrichedOrder> orders,
     required String emptyMsg,
     required bool showCancel,
   }) {
@@ -166,11 +186,12 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
       padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.s, AppSpacing.m, 96),
       itemCount: orders.length,
       itemBuilder: (context, index) {
-        final order = orders[index];
+        final enriched = orders[index];
+        final order = enriched.order;
         final cancellable = showCancel && ['PENDING', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'].contains(order.status.toUpperCase());
         return _CustomerOrderCard(
-          order: order,
-          onTap: () => context.push('/customer/orders/${order.id}', extra: order),
+          enrichedOrder: enriched,
+          onTap: () => context.push('/customer/orders/${order.id}', extra: enriched),
           onCancel: cancellable ? () => _cancelOrder(order.id) : null,
         );
       },
@@ -179,11 +200,15 @@ class _CustomerOrdersPageState extends ConsumerState<CustomerOrdersPage>
 }
 
 class _CustomerOrderCard extends StatelessWidget {
-  final RestaurantOrder order;
+  final EnrichedOrder enrichedOrder;
   final VoidCallback onTap;
   final VoidCallback? onCancel;
 
-  const _CustomerOrderCard({required this.order, required this.onTap, this.onCancel});
+  const _CustomerOrderCard({required this.enrichedOrder, required this.onTap, this.onCancel});
+
+  RestaurantOrder get order => enrichedOrder.order;
+
+  String get _restaurantDisplay => enrichedOrder.restaurant?.name ?? order.restaurantId;
 
   Color get _statusColor {
     switch (order.status.toUpperCase()) {
@@ -223,6 +248,18 @@ class _CustomerOrderCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(AppRadius.s),
                       ),
                       child: Text(order.statusLabel, style: AppTypography.labelSmall.copyWith(color: _statusColor, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.s),
+                Row(
+                  children: [
+                    Icon(Icons.restaurant, size: 14, color: AppColors.textSecondary),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(_restaurantDisplay,
+                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
                   ],
                 ),

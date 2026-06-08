@@ -18,6 +18,10 @@ export const DATABASE_USER = 'DATABASE_USER';
 export const DATABASE_PASSWORD = 'DATABASE_PASSWORD';
 export const DATABASE_NAME = 'DATABASE_NAME';
 
+// Service URLs
+export const CUSTOMER_SERVICE_URL = 'CUSTOMER_SERVICE_URL';
+export const RESTAURANT_SERVICE_URL = 'RESTAURANT_SERVICE_URL';
+
 // Headers
 export const HEADER_SERVICE_SECRET = 'x-service-secret';
 export const HEADER_CORRELATION_ID = 'x-correlation-id';

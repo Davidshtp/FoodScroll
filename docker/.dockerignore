@@ -1,0 +1,13 @@
+*
+!docker/
+!gateway/
+!identity-service/
+!customer-service/
+!location-service/
+!delivery-service/
+!restaurant-service/
+!publications-service/
+!engagement-service/
+!orders-service/
+!python-scraper/
+!python-license-scraper/

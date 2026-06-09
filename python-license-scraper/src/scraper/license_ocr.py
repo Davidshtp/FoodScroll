@@ -173,53 +173,70 @@ class LicenseOCR:
                 return doc_type
         return 'CC'
 
+    _MONTH_ABBR = {'ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'}
+
     def _extract_document_number(self, text_items: List[Tuple[str, float]]):
-        # Palabras clave asociadas al número de documento
         keywords = [
-            'CEDULA', 'CÉDULA', 'DOCUMENTO', 'CC', 'No', 'NÚMERO', 'IDENTIDAD', 'CIUDADAN', 'NUMERO'
+            'NUIP',  # ← más prioritario: en cédulas colombianas el número está junto a NUIP
+            'CEDULA', 'CÉDULA', 'DOCUMENTO', 'CC', 'No', 'NÚMERO', 'IDENTIDAD', 'CIUDADAN', 'NUMERO',
         ]
         context_candidates = []
         backup_candidates = []
 
         def clean_ocr_digit(s: str) -> str:
-            """
-            Corrige errores comunes en OCR para dígitos.
-            Solo aplica cuando estamos seguros que es documento, NO a todo.
-            """
-            # 1 puede ser confundido con I/l/|
             s = s.replace('I', '1').replace('l', '1').replace('|', '1')
-            # 0 puede ser confundido con O, o con D en algunos OCR
             s = re.sub(r'[OQD]', '0', s)
-            s = s.replace('B', '8')  # B puede ser 8
+            s = s.replace('B', '8')
             return s
 
-        # Buscamos primero el índice (posición) en el array de texto de una palabra clave
+        def is_date_like(text: str) -> bool:
+            upper = str(text).upper()
+            return any(m in upper for m in self._MONTH_ABBR)
+
+        # 1) Búsqueda contextual: palabra clave → número en líneas siguientes
         for idx, (text, conf) in enumerate(text_items):
             s_up = str(text).upper()
-            # Ejemplo: texto: "CÉDULA DE CIUDADANÍA", siguiente linea: "123456789"
             if any(kw in s_up for kw in keywords):
-                # Buscar en las siguientes líneas/cajas, el primer match numérico razonable
                 for look_ahead in range(1, 3):
                     if idx + look_ahead < len(text_items):
                         neigh, neigh_conf = text_items[idx + look_ahead]
                         neigh_txt = clean_ocr_digit(str(neigh))
-                        # regex: 6 a 12 digitos
                         match = re.search(r'\d{6,12}', neigh_txt)
                         if match:
                             context_candidates.append((match.group(0), float(neigh_conf)))
                         else:
-                            # Por si OCR mete ruido (ej: 3 4 0 1 2 9 7)
                             digits = re.sub(r'[^\d]', '', neigh_txt)
                             if 6 <= len(digits) <= 12:
                                 context_candidates.append((digits, float(neigh_conf)))
-        
-        # Si se halló match contextual, devolver el de mayor score/longitud
+
         if context_candidates:
             context_candidates.sort(key=lambda x: (x[1], len(x[0])), reverse=True)
             return context_candidates[0][0], float(context_candidates[0][1])
 
-        # Si el contexto falló, fallback al método antiguo pero corrigiendo OCR
-        for text, conf in text_items:
+        # 2) Fallback por posición: primer número ≥6 dígitos antes de "LUGAR" o "FECHA"
+        positional_candidates = []
+        for idx, (text, conf) in enumerate(text_items):
+            s_up = str(text).upper()
+            if is_date_like(text):
+                continue
+            s = clean_ocr_digit(str(text))
+            for m in re.finditer(self.DOCUMENT_NUMBER_PATTERN, s):
+                positional_candidates.append((m.group(0), float(conf), idx))
+            s_clean = re.sub(r'[^\d]', '', s)
+            if 6 <= len(s_clean) <= 12:
+                positional_candidates.append((s_clean, float(conf), idx))
+            # Si encontramos "LUGAR" o "FECHA", detener búsqueda hacia adelante
+            if 'LUGAR' in s_up or 'FECHA' in s_up:
+                break
+
+        if positional_candidates:
+            positional_candidates.sort(key=lambda x: (x[1], len(x[0])), reverse=True)
+            return positional_candidates[0][0], float(positional_candidates[0][1])
+
+        # 3) Fallback final: cualquier número, pero excluyendo fechas
+        for idx, (text, conf) in enumerate(text_items):
+            if is_date_like(text):
+                continue
             s = clean_ocr_digit(str(text))
             for m in re.finditer(self.DOCUMENT_NUMBER_PATTERN, s):
                 backup_candidates.append((m.group(0), float(conf)))

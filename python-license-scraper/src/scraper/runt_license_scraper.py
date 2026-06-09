@@ -29,15 +29,15 @@ from src.scraper.doc_selectors import (
 
 logger = get_logger(__name__)
 
-_RUNT_GOTO_TIMEOUT = 20000
-_RUNT_CAPTCHA_REFRESH_TIMEOUT = 5000
-_RUNT_AUTH_RESPONSE_TIMEOUT = 5000
-_RUNT_LICENSE_API_TIMEOUT = 8000
+_RUNT_GOTO_TIMEOUT = 30000
+_RUNT_CAPTCHA_REFRESH_TIMEOUT = 10000
+_RUNT_AUTH_RESPONSE_TIMEOUT = 30000
+_RUNT_LICENSE_API_TIMEOUT = 30000
 _RUNT_API_BASE = 'https://runtproapi.runt.gov.co/CYRConsultaCiudadanoMS'
 _RUNT_AUTH_URL = f"{_RUNT_API_BASE}/auth"
 _RUNT_LICENSE_URL = f"{_RUNT_API_BASE}/consulta-ciudadano/licencias"
-_BLOCK_RESOURCE_TYPES = {'font', 'stylesheet', 'media'}
-_BLOCK_IMAGES = False  # Image blocking disabled
+_BLOCK_RESOURCE_TYPES = {'font', 'stylesheet', 'media', 'image'}
+_BLOCK_IMAGES = True  # Image blocking enabled to reduce memory
 
 # Global singleton scraper (same pattern que RuntScraper)
 _scraper_instance: Optional['RuntLicenseScraper'] = None
@@ -108,7 +108,15 @@ class RuntPagePool:
         self._playwright = await async_playwright().start()
         launch_kwargs: Dict[str, Any] = {
             'headless': _is_headless(),
-            'args': ['--no-sandbox', '--disable-setuid-sandbox'],
+            'args': [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-gpu',
+                '--disable-dev-shm-usage',
+                '--disable-software-rasterizer',
+                '--js-flags=--max-old-space-size=1024',
+                '--disable-crash-reporter',
+            ],
         }
         self._browser = await self._playwright.chromium.launch(**launch_kwargs)
         return self._browser
@@ -804,18 +812,26 @@ class RuntLicenseScraper:
 
             token = ''
             auth_timeout_s = max(_RUNT_AUTH_RESPONSE_TIMEOUT, 0) / 1000.0
+            logger.debug('Waiting for RUNT auth response (timeout=%ds)...', auth_timeout_s)
             try:
                 auth_resp = await asyncio.wait_for(auth_future, timeout=auth_timeout_s)
                 token = await self._extract_auth_token(auth_resp)
+                logger.debug('Auth response received, token extracted: %s', 'yes' if token else 'no')
             except asyncio.TimeoutError:
                 token = ''
-            except Exception:
+                logger.warning('RUNT auth response timed out after %ds', auth_timeout_s)
+            except Exception as e:
                 token = ''
+                logger.warning('RUNT auth response error: %s', e)
 
             if token:
                 api_payload = await self._fetch_license_via_api(page, token)
                 if api_payload:
+                    logger.debug('License data fetched via API successfully')
                     return api_payload
+                logger.warning('License API call returned no payload')
+
+            logger.warning('RUNT_RESPONSE_TIMEOUT: token=%s, api_payload=%s', bool(token), bool(api_payload if token else False))
 
             return {
                 'error': True,

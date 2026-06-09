@@ -1,0 +1,283 @@
+name: feedgo-application
+
+services:
+  # ────────────────────────────────────────────
+  # Nginx Reverse Proxy (SSL Termination)
+  # ────────────────────────────────────────────
+  nginx:
+    build:
+      context: ..
+      dockerfile: docker/nginx/Dockerfile
+    container_name: feedgo-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - feedgo-public
+      - feedgo-app
+
+  # ────────────────────────────────────────────
+  # API Gateway (Puerto 3000)
+  # ────────────────────────────────────────────
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/gateway/Dockerfile
+    container_name: feedgo-gateway
+    restart: unless-stopped
+    env_file: ../gateway/.env
+    environment:
+      GATEWAY_PORT: "3000"
+      IDENTITY_SERVICE_URL: "http://identity-service:5560"
+      CUSTOMER_SERVICE_URL: "http://customer-service:5561"
+      LOCATION_SERVICE_URL: "http://location-service:5562"
+      DELIVERY_SERVICE_URL: "http://delivery-service:5563"
+      RESTAURANT_SERVICE_URL: "http://restaurant-service:5564"
+      PUBLICATIONS_SERVICE_URL: "http://publications-service:5565"
+      ENGAGEMENT_SERVICE_URL: "http://engagement-service:5566"
+      ORDERS_SERVICE_URL: "http://orders-service:5567"
+    depends_on:
+      identity-service:
+        condition: service_started
+    networks:
+      - feedgo-app
+
+  # ────────────────────────────────────────────
+  # Identity Service (Puerto 5560) - MySQL
+  # ────────────────────────────────────────────
+  identity-service:
+    build:
+      context: ..
+      dockerfile: docker/identity-service/Dockerfile
+    container_name: feedgo-identity
+    restart: unless-stopped
+    env_file: ../identity-service/.env
+    environment:
+      SERVER_PORT: "5560"
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_USER: ${MYSQL_USER:-feedgo}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD}
+      DATABASE_NAME: "identity-service"
+    networks:
+      - feedgo-app
+      - feedgo-infra
+
+  # ────────────────────────────────────────────
+  # Customer Service (Puerto 5561) - MySQL
+  # ────────────────────────────────────────────
+  customer-service:
+    build:
+      context: ..
+      dockerfile: docker/customer-service/Dockerfile
+    container_name: feedgo-customer
+    restart: unless-stopped
+    env_file: ../customer-service/.env
+    environment:
+      SERVER_PORT: "5561"
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_USER: ${MYSQL_USER:-feedgo}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD}
+      DATABASE_NAME: "customer-service"
+      IDENTITY_SERVICE_URL: "http://identity-service:5560"
+      LOCATION_SERVICE_URL: "http://location-service:5562"
+    networks:
+      - feedgo-app
+      - feedgo-infra
+
+  # ────────────────────────────────────────────
+  # Location Service (Puerto 5562) - MySQL
+  # ────────────────────────────────────────────
+  location-service:
+    build:
+      context: ..
+      dockerfile: docker/location-service/Dockerfile
+    container_name: feedgo-location
+    restart: unless-stopped
+    env_file: ../location-service/.env
+    environment:
+      SERVER_PORT: "5562"
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_USER: ${MYSQL_USER:-feedgo}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD}
+      DATABASE_NAME: "location-service"
+    networks:
+      - feedgo-app
+      - feedgo-infra
+
+  # ────────────────────────────────────────────
+  # Delivery Service (Puerto 5563) - MySQL
+  # ────────────────────────────────────────────
+  delivery-service:
+    build:
+      context: ..
+      dockerfile: docker/delivery-service/Dockerfile
+    container_name: feedgo-delivery
+    restart: unless-stopped
+    env_file: ../delivery-service/.env
+    environment:
+      SERVER_PORT: "5563"
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_USER: ${MYSQL_USER:-feedgo}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD}
+      DATABASE_NAME: "delivery-service"
+      IDENTITY_SERVICE_URL: "http://identity-service:5560"
+      RUNT_VERIFICATION_SERVICE_URL: "http://python-scraper:5591"
+      LICENSE_VERIFICATION_SERVICE_URL: "http://python-license-scraper:5592"
+    networks:
+      - feedgo-app
+      - feedgo-infra
+
+  # ────────────────────────────────────────────
+  # Restaurant Service (Puerto 5564) - PostgreSQL
+  # ────────────────────────────────────────────
+  restaurant-service:
+    build:
+      context: ..
+      dockerfile: docker/restaurant-service/Dockerfile
+    container_name: feedgo-restaurant
+    restart: unless-stopped
+    env_file: ../restaurant-service/.env
+    environment:
+      SERVER_PORT: "5564"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_USER: ${POSTGRES_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_NAME: "restaurant-service"
+      IDENTITY_SERVICE_URL: "http://identity-service:5560"
+      LOCATION_SERVICE_URL: "http://location-service:5562"
+    networks:
+      - feedgo-app
+      - feedgo-infra
+
+  # ────────────────────────────────────────────
+  # Publications Service (Puerto 5565) - MongoDB
+  # ────────────────────────────────────────────
+  publications-service:
+    build:
+      context: ..
+      dockerfile: docker/publications-service/Dockerfile
+    container_name: feedgo-publications
+    restart: unless-stopped
+    env_file: ../publications-service/.env
+    environment:
+      SERVER_PORT: "5565"
+      DATABASE_HOST: mongodb
+      DATABASE_PORT: "27017"
+      DATABASE_NAME: "publications-service"
+      RESTAURANT_SERVICE_URL: "http://restaurant-service:5564"
+      ENGAGEMENT_SERVICE_URL: "http://engagement-service:5566"
+    networks:
+      - feedgo-app
+      - feedgo-infra
+
+  # ────────────────────────────────────────────
+  # Engagement Service (Puerto 5566) - Neo4j + MongoDB + Redis
+  # ────────────────────────────────────────────
+  engagement-service:
+    build:
+      context: ..
+      dockerfile: docker/engagement-service/Dockerfile
+    container_name: feedgo-engagement
+    restart: unless-stopped
+    env_file: ../engagement-service/.env
+    environment:
+      SERVER_PORT: "5566"
+      NEO4J_URI: "bolt://neo4j:7687"
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      DATABASE_HOST: mongodb
+      DATABASE_PORT: "27017"
+      DATABASE_NAME: "engagement-service"
+    networks:
+      - feedgo-app
+      - feedgo-infra
+
+  # ────────────────────────────────────────────
+  # Orders Service (Puerto 5567) - MySQL + Redis
+  # ────────────────────────────────────────────
+  orders-service:
+    build:
+      context: ..
+      dockerfile: docker/orders-service/Dockerfile
+    container_name: feedgo-orders
+    restart: unless-stopped
+    env_file: ../orders-service/.env
+    environment:
+      SERVER_PORT: "5567"
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_USER: ${MYSQL_USER:-feedgo}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD}
+      DATABASE_NAME: "orders-service"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      IDENTITY_SERVICE_URL: "http://identity-service:5560"
+      RESTAURANT_SERVICE_URL: "http://restaurant-service:5564"
+      PUBLICATIONS_SERVICE_URL: "http://publications-service:5565"
+      CUSTOMER_SERVICE_URL: "http://customer-service:5561"
+      LOCATION_SERVICE_URL: "http://location-service:5562"
+      DELIVERY_SERVICE_URL: "http://delivery-service:5563"
+    networks:
+      - feedgo-app
+      - feedgo-infra
+
+  # ────────────────────────────────────────────
+  # Python Scraper RUNT Vehiculos (Puerto 5591)
+  # ────────────────────────────────────────────
+  python-scraper:
+    build:
+      context: ..
+      dockerfile: docker/python-scraper/Dockerfile
+    container_name: feedgo-python-scraper
+    restart: unless-stopped
+    env_file: ../python-scraper/.env
+    environment:
+      SERVER_PORT: "5591"
+    mem_limit: 4g
+    mem_reservation: 2g
+    networks:
+      - feedgo-app
+
+  # ────────────────────────────────────────────
+  # Python License Scraper (Puerto 5592)
+  # ────────────────────────────────────────────
+  python-license-scraper:
+    build:
+      context: ..
+      dockerfile: docker/python-license-scraper/Dockerfile
+    container_name: feedgo-python-license-scraper
+    restart: unless-stopped
+    env_file: ../python-license-scraper/.env
+    environment:
+      SERVER_PORT: "5592"
+    networks:
+      - feedgo-app
+
+networks:
+  feedgo-app:
+    name: feedgo-app
+    driver: bridge
+    ipam:
+      config:
+        - subnet: "172.21.0.0/16"
+  feedgo-infra:
+    name: feedgo-infra
+    external: true
+  feedgo-public:
+    name: feedgo-public
+    driver: bridge

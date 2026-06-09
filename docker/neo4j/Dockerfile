@@ -1,0 +1,5 @@
+FROM neo4j:5.26
+
+EXPOSE 7687 7474
+
+CMD ["neo4j"]

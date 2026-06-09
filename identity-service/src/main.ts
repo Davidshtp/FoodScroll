@@ -32,9 +32,8 @@ async function bootstrap() {
 
   const port = configService.get<number>(SERVER_PORT) || 5560;
 
-  // Bind explicitly to IPv4 localhost.
-  // This avoids cases where `localhost` resolves to IPv6 (::1) but some callers use 127.0.0.1.
-  await app.listen(port, '127.0.0.1');
+  // Bind to all interfaces for Docker container communication.
+  await app.listen(port, '0.0.0.0');
   logger.log(`Identity Service corriendo en http://localhost:${port} (solo accesible internamente)`);
 }
 bootstrap();

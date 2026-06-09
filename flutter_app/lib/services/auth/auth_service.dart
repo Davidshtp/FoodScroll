@@ -168,6 +168,7 @@ class AuthService {
       refreshToken: loginResponse.refreshToken,
     );
     await _storageService.saveUser(loginResponse.user.toJson());
+    await _storageService.setClientType(loginResponse.user.role);
   }
 
   Future<bool> isLoggedIn() async {
